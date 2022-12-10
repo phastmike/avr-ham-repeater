@@ -8,21 +8,30 @@
 #define MS_DELAY  250
 #define TOT_SEC   10     // 180 sec = 3 min.
 
-typedef enum _rx_status_t {
+#define LED_RX    PORTD2
+#define LED_TX    PORTD3
+#define LED_TOT   PORTD4
+
+typedef enum _repeater_status_t {
    RPT_STBY,
-   RPT_START,
+   RPT_RX_START,
+   RPT_TX_START,
    RPT_RTX,
-   RPT_STOP,
+   RPT_RX_STOP,
+   RPT_TX_STOP,
+   RPT_TOT_START,
    RPT_TOT,
-   RPT_ID,
+   RPT_TOT_STOP,
+   RPT_ID_START,
+   RPT_ID_STOP,
    RX_N
-} rx_status_t;
+} repeater_status_t;
 
 /*
  * Global variables
  */
 volatile bool update = false;
-volatile rx_status_t rx_status = RPT_STBY; 
+volatile repeater_status_t repeater_status = RPT_STBY; 
 volatile unsigned int tot = 0;
 
 /**
@@ -32,20 +41,18 @@ ISR(PCINT0_vect) {
    if (PINB && _BV(PINB5)) {
       // Started Receiving a signal
       // __/```
-      PORTD |= _BV(PORTD2);
-      if (rx_status == RPT_STBY)
-         rx_status = RPT_START;
+      PORTD |= _BV(LED_RX);
+      repeater_status = RPT_RX_START;
    } else {
       // Stopped receiving a signal
       // ```\__
-      PORTD &= ~_BV(PORTD2);
-      rx_status = RPT_STOP;
+      PORTD &= ~_BV(LED_RX);
+      repeater_status = RPT_RX_STOP;
    }
 }
 
 ISR(TIMER1_OVF_vect) {
-   //PORTD ^= _BV(PORTB4);
-   if (rx_status == RPT_RTX) {
+   if (repeater_status == RPT_RTX) {
       tot++;
    }
    TCNT1  = 65535 - (F_CPU/1024);
@@ -60,14 +67,7 @@ void delay_sec(unsigned int sec) {
    }
 }
 
-int main(void) {
-
-   /* PORT B as Inputs */
-	DDRB = 0x00;
-
-   /* Set pins as outputs */
-   DDRD |= _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD0);
-
+void intro_sequence(void) {
    // Wait a bit for signals to stabilize
    // And do a boot animation by lighting
    // all leds sequentially.
@@ -80,6 +80,17 @@ int main(void) {
    PORTD |= _BV(4);
    delay_sec(1);
    PORTD = 0x0;
+}
+
+int main(void) {
+
+   /* PORT B as Inputs */
+	DDRB = 0x00;
+
+   /* Set pins as outputs */
+   DDRD |= _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD0);
+
+   intro_sequence();
 
 	/**
 	 * Pin Change Interrupt enable on PCINT0 (PB0)
@@ -100,41 +111,53 @@ int main(void) {
 	sei();
 
 	for(;;) {
-      switch(rx_status) {
-         case RPT_START:
-            PORTD |= _BV(PORTD3);
+      switch(repeater_status) {
+         case RPT_RX_START:
             ATOMIC_BLOCK(ATOMIC_FORCEON) {
-               rx_status = RPT_RTX;
+               repeater_status = RPT_TX_START;
+            }
+            break;
+         case RPT_TX_START:
+            PORTD |= _BV(LED_TX);
+            ATOMIC_BLOCK(ATOMIC_FORCEON) {
+               repeater_status = RPT_RTX;
             }
             break;
          case RPT_RTX:
             if (tot >= TOT_SEC) {
                ATOMIC_BLOCK(ATOMIC_FORCEON) {
-                  tot = 0;
-                  PORTD &= ~_BV(PORTD3);
-                  PORTD |= _BV(PORTB4);
-                  rx_status = RPT_TOT;   
+                  repeater_status = RPT_TOT_START;   
                }
             }
             break;
-         case RPT_STOP:
-            for(int i=0;i<175;i++)
-               _delay_ms(10);
-            //Mutex ?
-            ATOMIC_BLOCK(ATOMIC_FORCEON) {
-               if (rx_status == RPT_STOP) {
-                  PORTD &= ~_BV(PORTD3);
-                  rx_status = RPT_STBY;
+         case RPT_RX_STOP:
+               ATOMIC_BLOCK(ATOMIC_FORCEON) {
+                  repeater_status = RPT_TX_STOP;   
                }
+            break;
+         case RPT_TOT_START:
+            PORTD &= ~_BV(LED_TX);
+            PORTD |= _BV(LED_TOT);
+            ATOMIC_BLOCK(ATOMIC_FORCEON) {
+               tot = 0;
+               repeater_status = RPT_TOT;   
             }
             break;
          case RPT_TOT:
-            _delay_ms(15);
+            break;
+         case RPT_TX_STOP:
+            for(int i=0;i<100;i++)
+               _delay_ms(10);
+            //Mutex ?
+            ATOMIC_BLOCK(ATOMIC_FORCEON) {
+               PORTD &= ~_BV(LED_TX);
+               PORTD |= _BV(LED_TOT);
+               repeater_status = RPT_STBY;
+            }
             break;
          default:
             break;
       }
-      _delay_ms(5);
 	}
 }
 
