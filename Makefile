@@ -1,4 +1,4 @@
-FILE_BINARY=isr_rx
+FILE_BINARY=main
 FILE_SOURCE=${FILE_BINARY}.c
 FILE_OBJECT=${FILE_BINARY}.o
 FILE_HEX=${FILE_BINARY}.hex
@@ -16,7 +16,7 @@ all:
 	avr-gcc -mmcu=atmega328p ${FILE_OBJECT} -o ${FILE_BINARY}
 	avr-objcopy -O ihex -R .eeprom ${FILE_BINARY} ${FILE_HEX}
 
-flash:
+flash: all 
 	minipro -w ${FILE_HEX} -c code -p ATMEGA328P@DIP28
 
 fuse:

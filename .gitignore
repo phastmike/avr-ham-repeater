@@ -1,6 +1,6 @@
 *~
 *.swp
 infoic.xml
-isr_rx
-isr_rx.o
-isr_rx.hex
+main
+main.o
+main.hex

@@ -8,9 +8,11 @@
 #define MS_DELAY  250
 #define TOT_SEC   10     // 180 sec = 3 min.
 
+#define MUTE_RX   PORTD1
 #define LED_RX    PORTD2
 #define LED_TX    PORTD3
 #define LED_TOT   PORTD4
+
 
 typedef enum _repeater_status_t {
    RPT_STBY,
@@ -31,6 +33,7 @@ typedef enum _repeater_status_t {
  * Global variables
  */
 volatile bool update = false;
+volatile bool repeater_is_receiving = false;
 volatile repeater_status_t repeater_status = RPT_STBY; 
 volatile unsigned int tot = 0;
 
@@ -42,12 +45,14 @@ ISR(PCINT0_vect) {
       // Started Receiving a signal
       // __/```
       PORTD |= _BV(LED_RX);
-      repeater_status = RPT_RX_START;
+      repeater_is_receiving = true;
+      //repeater_status = RPT_RX_START;
    } else {
       // Stopped receiving a signal
       // ```\__
       PORTD &= ~_BV(LED_RX);
-      repeater_status = RPT_RX_STOP;
+      repeater_is_receiving = false;
+      //repeater_status = RPT_RX_STOP;
    }
 }
 
@@ -82,6 +87,12 @@ void intro_sequence(void) {
    PORTD = 0x0;
 }
 
+void change_status(repeater_status_t status) {
+   ATOMIC_BLOCK(ATOMIC_FORCEON) {
+      repeater_status = status;
+   }
+}
+
 int main(void) {
 
    /* PORT B as Inputs */
@@ -113,47 +124,34 @@ int main(void) {
 	for(;;) {
       switch(repeater_status) {
          case RPT_RX_START:
-            ATOMIC_BLOCK(ATOMIC_FORCEON) {
-               repeater_status = RPT_TX_START;
-            }
+            change_status(RPT_TX_START);
             break;
          case RPT_TX_START:
             PORTD |= _BV(LED_TX);
-            ATOMIC_BLOCK(ATOMIC_FORCEON) {
-               repeater_status = RPT_RTX;
-            }
+            change_status(RPT_RTX);
             break;
          case RPT_RTX:
             if (tot >= TOT_SEC) {
-               ATOMIC_BLOCK(ATOMIC_FORCEON) {
-                  repeater_status = RPT_TOT_START;   
-               }
+               change_status(RPT_TOT_START);
             }
             break;
          case RPT_RX_STOP:
-               ATOMIC_BLOCK(ATOMIC_FORCEON) {
-                  repeater_status = RPT_TX_STOP;   
-               }
+            change_status(RPT_TX_STOP);
             break;
          case RPT_TOT_START:
             PORTD &= ~_BV(LED_TX);
             PORTD |= _BV(LED_TOT);
-            ATOMIC_BLOCK(ATOMIC_FORCEON) {
-               tot = 0;
-               repeater_status = RPT_TOT;   
-            }
+            tot = 0;
+            change_status(RPT_TOT);
             break;
          case RPT_TOT:
             break;
          case RPT_TX_STOP:
             for(int i=0;i<100;i++)
                _delay_ms(10);
-            //Mutex ?
-            ATOMIC_BLOCK(ATOMIC_FORCEON) {
-               PORTD &= ~_BV(LED_TX);
-               PORTD |= _BV(LED_TOT);
-               repeater_status = RPT_STBY;
-            }
+            PORTD &= ~_BV(LED_TX);
+            PORTD &= ~_BV(LED_TOT);
+            change_status(RPT_STBY);
             break;
          default:
             break;
