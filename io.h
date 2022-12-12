@@ -14,6 +14,10 @@
 
 #include <avr/io.h>
 
+#define IO_RPT_RX    PINB5
+
+#define IO_SYNTH     PORTC0
+
 #define IO_PTT       PORTD0
 #define IO_RX_MUTE   PORTD1
 #define IO_LED_RX    PORTD2
@@ -21,4 +25,16 @@
 #define IO_LED_TOT   PORTD4
 #define IO_ISD_PLAY  PORTD5
 
-#endif _IO_H_
+#define IO_ENABLE(out)   \
+   PORTD |= _BV(out);    \
+
+#define IO_DISABLE(out)  \
+   PORTD &= ~_BV(out);   \
+
+#define IO_TOGGLE(out)   \
+   PORTD ^= _BV(out)     \
+
+#define IOB_IS_ENABLED(in)\
+   (PINB && _BV(in))      \
+
+#endif /* _IO_H_ */

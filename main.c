@@ -4,22 +4,17 @@
 #include <util/delay.h>
 #include <stdbool.h>
 
-//#define F_CPU 8000000UL
-#define MS_DELAY  250
-#define TOT_SEC   10     // 180 sec = 3 min.
+#include "io.h"
 
-#define MUTE_RX   PORTD1
-#define LED_RX    PORTD2
-#define LED_TX    PORTD3
-#define LED_TOT   PORTD4
-
+//#define F_CPU           8000000UL
+#define MS_DELAY        250
+#define TIME_ID_SEC     30
+#define TIME_TOT_SEC    10     // 180 sec = 3 min.
 
 typedef enum _repeater_status_t {
    RPT_STBY,
-   RPT_RX_START,
    RPT_TX_START,
    RPT_RTX,
-   RPT_RX_STOP,
    RPT_TX_STOP,
    RPT_TOT_START,
    RPT_TOT,
@@ -35,7 +30,11 @@ typedef enum _repeater_status_t {
 volatile bool update = false;
 volatile bool repeater_is_receiving = false;
 volatile repeater_status_t repeater_status = RPT_STBY; 
-volatile unsigned int tot = 0;
+volatile unsigned int counter_tot = 0;
+volatile unsigned int counter_id  = 0;
+volatile bool time_to_tot = false;
+volatile bool time_to_id  = false;
+volatile bool tot_enabled = false;
 
 /**
  * set update on a high edge
@@ -44,22 +43,46 @@ ISR(PCINT0_vect) {
    if (PINB && _BV(PINB5)) {
       // Started Receiving a signal
       // __/```
-      PORTD |= _BV(LED_RX);
+      IO_ENABLE(IO_LED_RX);
       repeater_is_receiving = true;
-      //repeater_status = RPT_RX_START;
    } else {
       // Stopped receiving a signal
       // ```\__
-      PORTD &= ~_BV(LED_RX);
+      IO_DISABLE(IO_LED_RX);
       repeater_is_receiving = false;
-      //repeater_status = RPT_RX_STOP;
    }
 }
 
-ISR(TIMER1_OVF_vect) {
-   if (repeater_status == RPT_RTX) {
-      tot++;
+ISR(TIMER0_OVF_vect){
+   if (IOB_IS_ENABLED(PINB5)) {
+   //if (PINB && _BV(PINB5)) {
+      // Started Receiving a signal
+      // __/```
+      IO_ENABLE(IO_LED_RX);
+      repeater_is_receiving = true;
+   } else {
+      // Stopped receiving a signal
+      // ```\__
+      IO_DISABLE(IO_LED_RX);
+      repeater_is_receiving = false;
    }
+
+   TCNT0 = 255-100;
+}
+
+ISR(TIMER1_OVF_vect) {
+   if (counter_id <= TIME_ID_SEC) {
+      counter_id++;
+   }
+
+   if (counter_id > TIME_ID_SEC) {
+      time_to_id = true;
+   }
+
+   if (counter_tot <= TIME_TOT_SEC) {
+      counter_tot++;
+   }
+
    TCNT1  = 65535 - (F_CPU/1024);
 }
 
@@ -99,15 +122,24 @@ int main(void) {
 	DDRB = 0x00;
 
    /* Set pins as outputs */
-   DDRD |= _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD0);
+   DDRD |= _BV(DDD5) + _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD1) + _BV(DDD0);
 
    intro_sequence();
 
 	/**
 	 * Pin Change Interrupt enable on PCINT0 (PB0)
 	 */
-	PCICR |= _BV(PCIE0);
-	PCMSK0 |= _BV(PCINT5);
+	//PCICR  = _BV(PCIE0);
+	//PCMSK0 |= _BV(PCINT5);
+
+   
+   /**
+    * Set Timer 0 - 1 Hz | 1 sec.
+    */
+   TCNT0  = 255-99;
+   TIMSK0 = (1 << TOIE0); 
+   TCCR0A = 0x00;
+   TCCR0B = (1 << CS11); //Set Prescaler to 8 (bit 11) and start timer
 
    /**
     * Set Timer 1 - 1 Hz | 1 sec.
@@ -121,41 +153,56 @@ int main(void) {
 	// Turn interrupts on.
 	sei();
 
-	for(;;) {
-      switch(repeater_status) {
-         case RPT_RX_START:
-            change_status(RPT_TX_START);
-            break;
-         case RPT_TX_START:
-            PORTD |= _BV(LED_TX);
-            change_status(RPT_RTX);
-            break;
-         case RPT_RTX:
-            if (tot >= TOT_SEC) {
-               change_status(RPT_TOT_START);
-            }
-            break;
-         case RPT_RX_STOP:
-            change_status(RPT_TX_STOP);
-            break;
-         case RPT_TOT_START:
-            PORTD &= ~_BV(LED_TX);
-            PORTD |= _BV(LED_TOT);
-            tot = 0;
-            change_status(RPT_TOT);
-            break;
-         case RPT_TOT:
-            break;
-         case RPT_TX_STOP:
-            for(int i=0;i<100;i++)
-               _delay_ms(10);
-            PORTD &= ~_BV(LED_TX);
-            PORTD &= ~_BV(LED_TOT);
-            change_status(RPT_STBY);
-            break;
-         default:
-            break;
+	while(true) {
+
+loop_start:
+
+      while (!IOB_IS_ENABLED(PINB5) && !time_to_id) {
+         asm("");
       }
-	}
+
+      IO_ENABLE(IO_LED_TX);
+      IO_ENABLE(IO_PTT);
+      counter_tot = 0;
+      //start_tot_count = true;
+
+      while (IOB_IS_ENABLED(PINB5) && !time_to_id) {  // Fails ID when REPEATER IN USE
+         asm("");
+         if (counter_tot > TIME_TOT_SEC) {
+            IO_DISABLE(IO_LED_TX);
+            IO_DISABLE(IO_PTT);
+            tot_enabled = true;
+            IO_ENABLE(IO_LED_TOT);
+         }
+      }
+
+      if (tot_enabled) {
+         tot_enabled = false; 
+         IO_DISABLE(IO_LED_TOT);
+         // TOT Enabled so we don't need the long tail
+      } else {
+         // Normal tail ending. Add some time and beep
+         if (!time_to_id) {
+            delay_sec(1);
+            IO_DISABLE(IO_LED_TX);
+         }
+      }
+
+      /**
+       * It's time to ID? We cant count if it has
+       * been free in the last 5 seconds
+       */
+      if (time_to_id) {
+         time_to_id = false;
+         for (int c=0; c<8; c++) {
+            IO_ENABLE(IO_LED_TX);
+            _delay_ms(250); 
+            IO_DISABLE(IO_LED_TX);
+            _delay_ms(250);
+         }
+
+         counter_id = 0;
+      }
+   }
 }
 
