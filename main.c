@@ -10,6 +10,7 @@
 #define MS_DELAY        250
 #define TIME_ID_SEC     30
 #define TIME_TOT_SEC    10     // 180 sec = 3 min.
+#define TIME_WAIT_ID    6
 
 typedef enum _repeater_status_t {
    RPT_STBY,
@@ -32,6 +33,7 @@ volatile bool repeater_is_receiving = false;
 volatile repeater_status_t repeater_status = RPT_STBY; 
 volatile unsigned int counter_tot = 0;
 volatile unsigned int counter_id  = 0;
+volatile unsigned int counter_wait= 0;
 volatile bool time_to_tot = false;
 volatile bool time_to_id  = false;
 volatile bool tot_enabled = false;
@@ -73,14 +75,17 @@ ISR(TIMER0_OVF_vect){
 ISR(TIMER1_OVF_vect) {
    if (counter_id <= TIME_ID_SEC) {
       counter_id++;
-   }
-
-   if (counter_id > TIME_ID_SEC) {
-      time_to_id = true;
+      if (counter_id > TIME_ID_SEC) {
+         time_to_id = true;
+      }
    }
 
    if (counter_tot <= TIME_TOT_SEC) {
       counter_tot++;
+   }
+
+   if (time_to_id && counter_wait <= TIME_WAIT_ID) {
+      counter_wait++;
    }
 
    TCNT1  = 65535 - (F_CPU/1024);
@@ -157,42 +162,45 @@ int main(void) {
 
 loop_start:
 
-      while (!IOB_IS_ENABLED(PINB5) && !time_to_id) {
+      /*
+      while (!IOB_IS_ENABLED(PINB5)) {
          asm("");
       }
+      */
 
-      IO_ENABLE(IO_LED_TX);
-      IO_ENABLE(IO_PTT);
-      counter_tot = 0;
-      //start_tot_count = true;
+      if (IOB_IS_ENABLED(PINB5)) {
+         IO_ENABLE(IO_LED_TX);
+         IO_ENABLE(IO_PTT);
+         counter_tot = 0;
 
-      while (IOB_IS_ENABLED(PINB5) && !time_to_id) {  // Fails ID when REPEATER IN USE
-         asm("");
-         if (counter_tot > TIME_TOT_SEC) {
-            IO_DISABLE(IO_LED_TX);
-            IO_DISABLE(IO_PTT);
-            tot_enabled = true;
-            IO_ENABLE(IO_LED_TOT);
+         while (IOB_IS_ENABLED(PINB5)) {
+            asm("");
+            if (counter_tot > TIME_TOT_SEC) {
+               IO_DISABLE(IO_LED_TX);
+               IO_DISABLE(IO_PTT);
+               tot_enabled = true;
+               IO_ENABLE(IO_LED_TOT);
+            }
          }
-      }
 
-      if (tot_enabled) {
-         tot_enabled = false; 
-         IO_DISABLE(IO_LED_TOT);
-         // TOT Enabled so we don't need the long tail
-      } else {
-         // Normal tail ending. Add some time and beep
-         if (!time_to_id) {
+         if (tot_enabled) {
+            tot_enabled = false; 
+            IO_DISABLE(IO_LED_TOT);
+            // TOT Enabled so we don't need the long tail
+         } else {
+            // Normal tail ending. Add some time and beep
             delay_sec(1);
             IO_DISABLE(IO_LED_TX);
          }
+
+         counter_wait = 0;
       }
 
       /**
        * It's time to ID? We cant count if it has
-       * been free in the last 5 seconds
+       * been free in the last TIME_WAIT_ID seconds
        */
-      if (time_to_id) {
+      if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
          for (int c=0; c<8; c++) {
             IO_ENABLE(IO_LED_TX);
@@ -202,6 +210,7 @@ loop_start:
          }
 
          counter_id = 0;
+         counter_wait = 0;
       }
    }
 }
