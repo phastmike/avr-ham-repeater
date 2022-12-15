@@ -34,6 +34,7 @@ volatile repeater_status_t repeater_status = RPT_STBY;
 volatile unsigned int counter_tot = 0;
 volatile unsigned int counter_id  = 0;
 volatile unsigned int counter_wait= 0;
+volatile unsigned int counter_beep= 0;
 volatile bool time_to_tot = false;
 volatile bool time_to_id  = false;
 volatile bool tot_enabled = false;
@@ -56,8 +57,16 @@ ISR(PCINT0_vect) {
 }
 
 ISR(TIMER0_OVF_vect){
-   if (IOB_IS_ENABLED(PINB5)) {
-   //if (PINB && _BV(PINB5)) {
+
+   /*
+   counter_beep++;
+   if (counter_beep > 5) {
+      IO_TOGGLE(PORTC, IO_BEEP);
+      counter_beep = 0;
+   }
+   */
+
+   if (IO_IS_ENABLED(PINB, PINB5)) {
       // Started Receiving a signal
       // __/```
       IO_ENABLE(IO_LED_RX);
@@ -91,10 +100,28 @@ ISR(TIMER1_OVF_vect) {
    TCNT1  = 65535 - (F_CPU/1024);
 }
 
+ISR(TIMER2_OVF_vect) {
+   counter_beep++;
+   if (counter_beep > 16) {
+      IO_TOGGLE(PORTC, IO_BEEP);
+      counter_beep = 0;
+   }
+   TCNT2  = 255-99;
+}
+
 void delay_sec(unsigned int sec) {
-   // FIXME: 
+   // FIXME: sec overflow
    if (sec > 0 && sec <= 65535) {
       for (int c = 0; c <= (sec * 1000); c++) { 
+         _delay_ms(1);
+      }
+   }
+}
+
+void delay_ms(unsigned int ms) {
+   // FIXME:
+   if (ms > 0 && ms <= 65535) {
+      for (int c = 0; c <= ms; c++) { 
          _delay_ms(1);
       }
    }
@@ -127,6 +154,7 @@ int main(void) {
 	DDRB = 0x00;
 
    /* Set pins as outputs */
+   DDRC |= _BV(DDC0);
    DDRD |= _BV(DDD5) + _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD1) + _BV(DDD0);
 
    intro_sequence();
@@ -139,20 +167,33 @@ int main(void) {
 
    
    /**
-    * Set Timer 0 - 1 Hz | 1 sec.
+    * Set Timer 0 - 100usec
+    * Timer 8MHz/8 = 1MHz
+    * Count 100 => 100usec
     */
    TCNT0  = 255-99;
    TIMSK0 = (1 << TOIE0); 
    TCCR0A = 0x00;
-   TCCR0B = (1 << CS11); //Set Prescaler to 8 (bit 11) and start timer
+   TCCR0B = (1 << CS01); //Set Prescaler to 8 (bit 11) and start timer
 
    /**
     * Set Timer 1 - 1 Hz | 1 sec.
+    * Count MAX_INT - (8MHz/1024)
     */
    TCNT1  = 65535 - (F_CPU/1024);
    TIMSK1 = (1 << TOIE1); 
    TCCR1A = 0x00;
    TCCR1B = (1 << CS10) | (1 << CS12); //Set Prescaler to 1024 (bit 10 and 12) and start timer
+
+   /**
+    * Set Timer 2 Test for 1kHz, 500usec on 500us off
+    *
+    */
+   TCNT2  = 255-99;
+   TIMSK2 = (1 << TOIE2); 
+   TCCR2A = 0x00;
+   //TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+   TCCR2B = 0;
 
 
 	// Turn interrupts on.
@@ -160,20 +201,12 @@ int main(void) {
 
 	while(true) {
 
-loop_start:
-
-      /*
-      while (!IOB_IS_ENABLED(PINB5)) {
-         asm("");
-      }
-      */
-
-      if (IOB_IS_ENABLED(PINB5)) {
+      if (IO_IS_ENABLED(PINB, PINB5)) {
          IO_ENABLE(IO_LED_TX);
          IO_ENABLE(IO_PTT);
          counter_tot = 0;
 
-         while (IOB_IS_ENABLED(PINB5)) {
+         while (IO_IS_ENABLED(PINB, PINB5)) {
             asm("");
             if (counter_tot > TIME_TOT_SEC) {
                IO_DISABLE(IO_LED_TX);
@@ -189,7 +222,12 @@ loop_start:
             // TOT Enabled so we don't need the long tail
          } else {
             // Normal tail ending. Add some time and beep
-            delay_sec(1);
+            delay_ms(1500);
+
+            TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+            delay_ms(210);
+            TCCR2B = 0;
+
             IO_DISABLE(IO_LED_TX);
          }
 

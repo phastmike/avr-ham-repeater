@@ -16,7 +16,7 @@
 
 #define IO_RPT_RX    PINB5
 
-#define IO_SYNTH     PORTC0
+#define IO_BEEP      PORTC0
 
 #define IO_PTT       PORTD0
 #define IO_RX_MUTE   PORTD1
@@ -31,10 +31,10 @@
 #define IO_DISABLE(out)  \
    PORTD &= ~_BV(out);   \
 
-#define IO_TOGGLE(out)   \
-   PORTD ^= _BV(out)     \
+#define IO_TOGGLE(port, out)   \
+   port ^= _BV(out)     \
 
-#define IOB_IS_ENABLED(in)\
-   (PINB && _BV(in))      \
+#define IO_IS_ENABLED(port, in)\
+   (port && _BV(in))      \
 
 #endif /* _IO_H_ */
