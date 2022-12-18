@@ -38,6 +38,8 @@ volatile unsigned int counter_beep= 0;
 volatile bool time_to_tot = false;
 volatile bool time_to_id  = false;
 volatile bool tot_enabled = false;
+volatile unsigned int beep_freq   = 17; //
+static bool beep_tot_played = false;
 
 /**
  * set update on a high edge
@@ -78,7 +80,7 @@ ISR(TIMER0_OVF_vect){
       repeater_is_receiving = false;
    }
 
-   TCNT0 = 255-100;
+   TCNT0 = 255-99;
 }
 
 ISR(TIMER1_OVF_vect) {
@@ -102,7 +104,7 @@ ISR(TIMER1_OVF_vect) {
 
 ISR(TIMER2_OVF_vect) {
    counter_beep++;
-   if (counter_beep > 16) {
+   if (counter_beep > beep_freq) {
       IO_TOGGLE(PORTC, IO_BEEP);
       counter_beep = 0;
    }
@@ -199,6 +201,9 @@ int main(void) {
 	// Turn interrupts on.
 	sei();
 
+   IO_ENABLE(IO_RX_MUTE);
+
+
 	while(true) {
 
       if (IO_IS_ENABLED(PINB, PINB5)) {
@@ -206,9 +211,45 @@ int main(void) {
          IO_ENABLE(IO_PTT);
          counter_tot = 0;
 
+         beep_tot_played = false;
+
          while (IO_IS_ENABLED(PINB, PINB5)) {
             asm("");
-            if (counter_tot > TIME_TOT_SEC) {
+            if (counter_tot > TIME_TOT_SEC && !beep_tot_played) {
+               // TIMEOUT
+               beep_freq = 3;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(25);
+               TCCR2B = 0;
+
+               beep_freq = 5;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(25);
+               TCCR2B = 0;
+
+               beep_freq = 4;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(15);
+               TCCR2B = 0;
+
+               beep_freq = 6;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(25);
+               TCCR2B = 0;
+
+               beep_freq = 2;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(25);
+               TCCR2B = 0;
+
+               beep_freq = 8;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(15);
+               TCCR2B = 0;
+
+               delay_ms(500);
+               beep_tot_played = true;
+
                IO_DISABLE(IO_LED_TX);
                IO_DISABLE(IO_PTT);
                tot_enabled = true;
@@ -222,11 +263,18 @@ int main(void) {
             // TOT Enabled so we don't need the long tail
          } else {
             // Normal tail ending. Add some time and beep
-            delay_ms(1500);
+            // FIXME: Make this non blocking to allow carry on from next operator
+            delay_ms(2000);
 
+            if (time_to_id) 
+               beep_freq = 4;
+            else
+               beep_freq = 8;
             TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
-            delay_ms(210);
+            delay_ms(40);
             TCCR2B = 0;
+            
+            delay_ms(800);
 
             IO_DISABLE(IO_LED_TX);
          }
@@ -240,12 +288,16 @@ int main(void) {
        */
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
-         for (int c=0; c<8; c++) {
+         IO_DISABLE(IO_RX_MUTE);
+         IO_ENABLE(IO_ISD_PLAY);
+         for (int c=0; c<21; c++) {
             IO_ENABLE(IO_LED_TX);
             _delay_ms(250); 
             IO_DISABLE(IO_LED_TX);
             _delay_ms(250);
          }
+         IO_DISABLE(IO_ISD_PLAY);
+         IO_ENABLE(IO_RX_MUTE);
 
          counter_id = 0;
          counter_wait = 0;
