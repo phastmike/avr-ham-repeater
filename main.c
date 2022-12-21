@@ -8,7 +8,7 @@
 
 //#define F_CPU           8000000UL
 #define MS_DELAY        250
-#define TIME_ID_SEC     30
+#define TIME_ID_SEC     60
 #define TIME_TOT_SEC    10     // 180 sec = 3 min.
 #define TIME_WAIT_ID    6
 
@@ -35,11 +35,13 @@ volatile unsigned int counter_tot = 0;
 volatile unsigned int counter_id  = 0;
 volatile unsigned int counter_wait= 0;
 volatile unsigned int counter_beep= 0;
+volatile unsigned int counter_tail= 0;
 volatile bool time_to_tot = false;
 volatile bool time_to_id  = false;
 volatile bool tot_enabled = false;
 volatile unsigned int beep_freq   = 17; //
 static bool beep_tot_played = false;
+static bool tail_pending = false;
 
 /**
  * set update on a high edge
@@ -98,6 +100,8 @@ ISR(TIMER1_OVF_vect) {
    if (time_to_id && counter_wait <= TIME_WAIT_ID) {
       counter_wait++;
    }
+
+   if (tail_pending) counter_tail++;
 
    TCNT1  = 65535 - (F_CPU/1024);
 }
@@ -215,7 +219,9 @@ int main(void) {
 
          while (IO_IS_ENABLED(PINB, PINB5)) {
             asm("");
+            
             if (counter_tot > TIME_TOT_SEC && !beep_tot_played) {
+               IO_ENABLE(IO_LED_TOT);
                // TIMEOUT
                beep_freq = 3;
                TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
@@ -247,39 +253,82 @@ int main(void) {
                delay_ms(15);
                TCCR2B = 0;
 
-               delay_ms(500);
+               delay_ms(300);
                beep_tot_played = true;
 
                IO_DISABLE(IO_LED_TX);
                IO_DISABLE(IO_PTT);
                tot_enabled = true;
-               IO_ENABLE(IO_LED_TOT);
             }
          }
 
+
          if (tot_enabled) {
             tot_enabled = false; 
+            tail_pending = false;
             IO_DISABLE(IO_LED_TOT);
             // TOT Enabled so we don't need the long tail
          } else {
             // Normal tail ending. Add some time and beep
             // FIXME: Make this non blocking to allow carry on from next operator
-            delay_ms(2000);
+            //delay_ms(2000);
 
-            if (time_to_id) 
-               beep_freq = 4;
-            else
-               beep_freq = 8;
+            /*
+            if (counter_tail > 2) {
+               tail_pending = false;
+
+               if (time_to_id) 
+                  beep_freq = 4;
+               else
+                  beep_freq = 8;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(40);
+               TCCR2B = 0;
+               
+               delay_ms(800);
+
+               IO_DISABLE(IO_LED_TX);
+            } else {
+            */
+
+               if (!tail_pending) tail_pending = true;
+
+               delay_ms(800);
+               beep_freq = 16;
+               TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+               delay_ms(25);
+               TCCR2B = 0;
+            //}
+         }
+
+         counter_tail = 0;
+         counter_wait = 0;
+      }
+
+      if (counter_tail >= 4 && tail_pending) {
+         tail_pending = false;
+         counter_tail = 0;
+
+         if (time_to_id) { 
+            beep_freq = 4;
             TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
             delay_ms(40);
             TCCR2B = 0;
-            
-            delay_ms(800);
-
-            IO_DISABLE(IO_LED_TX);
+            delay_ms(40);
+            beep_freq = 4;
+            TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+            delay_ms(40);
+            TCCR2B = 0;
+         } else {
+            beep_freq = 10;
+            TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
+            delay_ms(40);
+            TCCR2B = 0;
          }
 
-         counter_wait = 0;
+         delay_ms(500);
+
+         IO_DISABLE(IO_LED_TX);
       }
 
       /**
