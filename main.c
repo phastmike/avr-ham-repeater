@@ -8,9 +8,9 @@
 
 //#define F_CPU           8000000UL
 #define MS_DELAY        250
-#define TIME_ID_SEC     60
+#define TIME_ID_SEC     600    // 10 min.
 #define TIME_TOT_SEC    10     // 180 sec = 3 min.
-#define TIME_WAIT_ID    6
+#define TIME_WAIT_ID    10 
 
 typedef enum _repeater_status_t {
    RPT_STBY,
@@ -329,6 +329,7 @@ int main(void) {
          delay_ms(500);
 
          IO_DISABLE(IO_LED_TX);
+         IO_DISABLE(IO_PTT);
       }
 
       /**
@@ -339,6 +340,7 @@ int main(void) {
          time_to_id = false;
          IO_DISABLE(IO_RX_MUTE);
          IO_ENABLE(IO_ISD_PLAY);
+         IO_ENABLE(IO_PTT);
          for (int c=0; c<21; c++) {
             IO_ENABLE(IO_LED_TX);
             _delay_ms(250); 
@@ -346,6 +348,7 @@ int main(void) {
             _delay_ms(250);
          }
          IO_DISABLE(IO_ISD_PLAY);
+         IO_DISABLE(IO_PTT);
          IO_ENABLE(IO_RX_MUTE);
 
          counter_id = 0;
