@@ -5,32 +5,19 @@
 #include <stdbool.h>
 
 #include "io.h"
+#include "morse.h"
 
 //#define F_CPU           8000000UL
 #define MS_DELAY        250
-#define TIME_ID_SEC     600    // 10 min.
+#define TIME_ID_SEC     60    // 10 min.  FIXME: remove wait time
 #define TIME_TOT_SEC    10     // 180 sec = 3 min.
 #define TIME_WAIT_ID    10 
-
-typedef enum _repeater_status_t {
-   RPT_STBY,
-   RPT_TX_START,
-   RPT_RTX,
-   RPT_TX_STOP,
-   RPT_TOT_START,
-   RPT_TOT,
-   RPT_TOT_STOP,
-   RPT_ID_START,
-   RPT_ID_STOP,
-   RX_N
-} repeater_status_t;
 
 /*
  * Global variables
  */
 volatile bool update = false;
 volatile bool repeater_is_receiving = false;
-volatile repeater_status_t repeater_status = RPT_STBY; 
 volatile unsigned int counter_tot = 0;
 volatile unsigned int counter_id  = 0;
 volatile unsigned int counter_wait= 0;
@@ -43,42 +30,39 @@ volatile unsigned int beep_freq   = 17; //
 static bool beep_tot_played = false;
 static bool tail_pending = false;
 
+
+void beep(unsigned char freq, unsigned int duration);
+void delay_ms(unsigned int ms);
+
+
 /**
- * set update on a high edge
+ * PIN Change interrupt does not work very well, there are misses
+ * which are unacceptable. 
  */
 ISR(PCINT0_vect) {
    if (PINB && _BV(PINB5)) {
       // Started Receiving a signal
       // __/```
-      IO_ENABLE(IO_LED_RX);
+      IO_ENABLE(PORTD, IO_LED_RX);
       repeater_is_receiving = true;
    } else {
       // Stopped receiving a signal
       // ```\__
-      IO_DISABLE(IO_LED_RX);
+      IO_DISABLE(PORTD, IO_LED_RX);
       repeater_is_receiving = false;
    }
 }
 
 ISR(TIMER0_OVF_vect){
-
-   /*
-   counter_beep++;
-   if (counter_beep > 5) {
-      IO_TOGGLE(PORTC, IO_BEEP);
-      counter_beep = 0;
-   }
-   */
-
    if (IO_IS_ENABLED(PINB, PINB5)) {
       // Started Receiving a signal
       // __/```
-      IO_ENABLE(IO_LED_RX);
+      IO_ENABLE(PORTD, IO_LED_RX);
       repeater_is_receiving = true;
    } else {
       // Stopped receiving a signal
       // ```\__
-      IO_DISABLE(IO_LED_RX);
+      IO_DISABLE(PORTD, IO_LED_RX);
       repeater_is_receiving = false;
    }
 
@@ -139,20 +123,22 @@ void intro_sequence(void) {
    // all leds sequentially.
    PORTD = 0x0;
    delay_sec(1);
-   PORTD |= _BV(2);
+   IO_ENABLE(PORTD, IO_LED_RX);
    delay_sec(1);
-   PORTD |= _BV(3);
+   IO_ENABLE(PORTD, IO_LED_TX);
    delay_sec(1);
-   PORTD |= _BV(4);
+   IO_ENABLE(PORTD, IO_LED_TOT);
    delay_sec(1);
    PORTD = 0x0;
 }
 
+/*
 void change_status(repeater_status_t status) {
    ATOMIC_BLOCK(ATOMIC_FORCEON) {
       repeater_status = status;
    }
 }
+*/
 
 void beep(unsigned char freq, unsigned int duration) {
    beep_freq = freq;
@@ -208,18 +194,21 @@ int main(void) {
    //TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
    TCCR2B = 0;
 
+   morse_t *morse = morse_new();
+   morse_beep_delegate_connect(morse, beep);
+   morse_delay_delegate_connect(morse, delay_ms);
 
 	// Turn interrupts on.
 	sei();
 
-   IO_ENABLE(IO_RX_MUTE);
+   IO_ENABLE(PORTD, IO_RX_MUTE);
 
 
 	while(true) {
 
       if (IO_IS_ENABLED(PINB, PINB5)) {
-         IO_ENABLE(IO_LED_TX);
-         IO_ENABLE(IO_PTT);
+         IO_ENABLE(PORTD, IO_LED_TX);
+         IO_ENABLE(PORTD, IO_PTT);
          counter_tot = 0;
 
          beep_tot_played = false;
@@ -228,7 +217,7 @@ int main(void) {
             asm("");
             
             if (counter_tot > TIME_TOT_SEC && !beep_tot_played) {
-               IO_ENABLE(IO_LED_TOT);
+               IO_ENABLE(PORTD, IO_LED_TOT);
                
                // TIMEOUT
                beep(3, 25);
@@ -241,8 +230,8 @@ int main(void) {
                delay_ms(300);
                beep_tot_played = true;
 
-               IO_DISABLE(IO_LED_TX);
-               IO_DISABLE(IO_PTT);
+               IO_DISABLE(PORTD, IO_LED_TX);
+               IO_DISABLE(PORTD, IO_PTT);
                tot_enabled = true;
             }
          }
@@ -252,7 +241,9 @@ int main(void) {
             // TOT Enabled so we don't need the long tail
             tot_enabled = false; 
             tail_pending = false;
-            IO_DISABLE(IO_LED_TOT);
+            IO_DISABLE(PORTD, IO_LED_TOT);
+            // FIXME: Add 1 sec penalti. Figure out the best way...
+            //delay_sec(1);
          } else {
             // Normal tail ending. Add some time and beep
             tail_pending = true;
@@ -276,30 +267,31 @@ int main(void) {
             beep(10, 40);
          }
 
+         //morse_send_msg(morse, "R K");
          delay_ms(500);
 
-         IO_DISABLE(IO_LED_TX);
-         IO_DISABLE(IO_PTT);
+         IO_DISABLE(PORTD, IO_LED_TX);
+         IO_DISABLE(PORTD, IO_PTT);
       }
 
       /**
-       * It's time to ID? We cant count if it has
+       * It's time to ID? If so, we can count if it has
        * been free in the last TIME_WAIT_ID seconds
        */
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
-         IO_DISABLE(IO_RX_MUTE);
-         IO_ENABLE(IO_ISD_PLAY);
-         IO_ENABLE(IO_PTT);
+         IO_DISABLE(PORTD, IO_RX_MUTE);
+         IO_ENABLE(PORTD, IO_ISD_PLAY);
+         IO_ENABLE(PORTD, IO_PTT);
          for (int c=0; c<21; c++) {
-            IO_ENABLE(IO_LED_TX);
+            IO_ENABLE(PORTD, IO_LED_TX);
             _delay_ms(250); 
-            IO_DISABLE(IO_LED_TX);
+            IO_DISABLE(PORTD, IO_LED_TX);
             _delay_ms(250);
          }
-         IO_DISABLE(IO_ISD_PLAY);
-         IO_DISABLE(IO_PTT);
-         IO_ENABLE(IO_RX_MUTE);
+         IO_DISABLE(PORTD, IO_ISD_PLAY);
+         IO_DISABLE(PORTD, IO_PTT);
+         IO_ENABLE(PORTD, IO_RX_MUTE);
 
          counter_id = 0;
          counter_wait = 0;

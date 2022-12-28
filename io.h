@@ -25,16 +25,9 @@
 #define IO_LED_TOT   PORTD4
 #define IO_ISD_PLAY  PORTD5
 
-#define IO_ENABLE(out)   \
-   PORTD |= _BV(out);    \
-
-#define IO_DISABLE(out)  \
-   PORTD &= ~_BV(out);   \
-
-#define IO_TOGGLE(port, out)   \
-   port ^= _BV(out)     \
-
-#define IO_IS_ENABLED(port, in)\
-   (port && _BV(in))      \
+#define IO_ENABLE(port, out)     (port |= _BV(out))
+#define IO_DISABLE(port, out)    (port &= ~_BV(out))
+#define IO_TOGGLE(port, out)     (port ^= _BV(out))
+#define IO_IS_ENABLED(port, in)  (port && _BV(in))
 
 #endif /* _IO_H_ */

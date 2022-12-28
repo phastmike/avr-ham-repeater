@@ -4,3 +4,4 @@ infoic.xml
 main
 main.o
 main.hex
+morse.o
