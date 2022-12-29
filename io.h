@@ -19,7 +19,7 @@
 #define IO_BEEP      PORTC0
 
 #define IO_PTT       PORTD0
-#define IO_RX_MUTE   PORTD1
+#define IO_RX_UNMUTE PORTD1
 #define IO_LED_RX    PORTD2
 #define IO_LED_TX    PORTD3
 #define IO_LED_TOT   PORTD4

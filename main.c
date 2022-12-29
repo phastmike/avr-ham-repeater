@@ -234,13 +234,14 @@ int main(void) {
 	// Turn interrupts on.
 	sei();
 
-   IO_ENABLE(PORTD, IO_RX_MUTE);
+   IO_DISABLE(PORTD, IO_RX_UNMUTE);
 
 
 	while(true) {
 
       if (IO_IS_ENABLED(PINB, PINB5)) {
          IO_ENABLE(PORTD, IO_LED_TX);
+         IO_ENABLE(PORTD, IO_RX_UNMUTE);
          IO_ENABLE(PORTD, IO_PTT);
          counter_tot = 0;
 
@@ -284,6 +285,7 @@ int main(void) {
             beep(32,25);
          }
 
+         IO_DISABLE(PORTD, IO_RX_UNMUTE);
          counter_tail = 0;
          counter_wait = 0;
       }
@@ -313,7 +315,7 @@ int main(void) {
        */
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
-         IO_DISABLE(PORTD, IO_RX_MUTE);
+         //IO_DISABLE(PORTD, IO_RX_UNMUTE);
          IO_ENABLE(PORTD, IO_ISD_PLAY);
          IO_ENABLE(PORTD, IO_PTT);
          for (int c=0; c<21; c++) {
@@ -324,7 +326,7 @@ int main(void) {
          }
          IO_DISABLE(PORTD, IO_ISD_PLAY);
          IO_DISABLE(PORTD, IO_PTT);
-         IO_ENABLE(PORTD, IO_RX_MUTE);
+         //IO_ENABLE(PORTD, IO_RX_UNMUTE);
 
          counter_id = 0;
          counter_wait = 0;
