@@ -298,9 +298,9 @@ int main(void) {
             beep(4, 40);
          } else {
             beep(16, 40);
+            //morse_send_msg(morse, "K");
          }
 
-         //morse_send_msg(morse, "R K");
          delay_ms(500);
 
          IO_DISABLE(PORTD, IO_LED_TX);
