@@ -7,17 +7,36 @@
 #include "io.h"
 #include "morse.h"
 
-//#define F_CPU           8000000UL
-#define MS_DELAY        250
-#define TIME_ID_SEC     60    // 10 min.  FIXME: remove wait time
-#define TIME_TOT_SEC    10     // 180 sec = 3 min.
-#define TIME_WAIT_ID    10 
+/* F_CPU
+ * 
+ * Could define CPU speed with 
+ * #define F_CPU 8000000UL
+ * for an 8MHz external crystal (XTAL)
+ *
+ * Or, as we are doing, pass the definition to the compiler
+ * So we don't need to edit the code in case we change the 
+ * XTAL and just recompile passing -D F_CPU <value>
+ */
+
+/* TIME_ID_SEC & TIME_WAIT_ID
+ * Time for ID in seconds. For 10 minutes, 60 sec/min * 10 min = 600 
+ * Reaching time to id we wait TIME_WAIT_ID seconds to ID.
+ * We subtract the wait time to make the "correct" time = 600 - TIME_WAIT_ID.
+ */
+
+#define TIME_WAIT_ID    10
+#define TIME_ID_SEC     60
+
+/* TIME_TOT_SEC
+ * Time Out Timer duration, Our default time is 3 min = 180 sec.
+ */
+
+#define TIME_TOT_SEC    10
 
 /*
  * Global variables
  */
 volatile bool update = false;
-volatile bool repeater_is_receiving = false;
 volatile unsigned int counter_tot = 0;
 volatile unsigned int counter_id  = 0;
 volatile unsigned int counter_wait= 0;
@@ -35,35 +54,35 @@ void beep(unsigned char freq, unsigned int duration);
 void delay_ms(unsigned int ms);
 
 
-/**
- * PIN Change interrupt does not work very well, there are misses
- * which are unacceptable. 
+/* PIN CHANGE Interrupt
+ * The pin change interrupt does not work very well, there are misses
+ * which are unacceptable. Keep it for reference sake fwiw.
+ * Uncomment if needed.
  */
+
+/*
 ISR(PCINT0_vect) {
-   if (PINB && _BV(PINB5)) {
+   if (IO_IS_ENABLED(PINB, PINB5)) {
       // Started Receiving a signal
       // __/```
       IO_ENABLE(PORTD, IO_LED_RX);
-      repeater_is_receiving = true;
    } else {
       // Stopped receiving a signal
       // ```\__
       IO_DISABLE(PORTD, IO_LED_RX);
-      repeater_is_receiving = false;
    }
 }
+*/
 
 ISR(TIMER0_OVF_vect){
    if (IO_IS_ENABLED(PINB, PINB5)) {
       // Started Receiving a signal
       // __/```
       IO_ENABLE(PORTD, IO_LED_RX);
-      repeater_is_receiving = true;
    } else {
       // Stopped receiving a signal
       // ```\__
       IO_DISABLE(PORTD, IO_LED_RX);
-      repeater_is_receiving = false;
    }
 
    TCNT0 = 255-99;
@@ -161,37 +180,51 @@ int main(void) {
 	/**
 	 * Pin Change Interrupt enable on PCINT0 (PB0)
 	 */
-	//PCICR  = _BV(PCIE0);
+	
+   //PCICR  = _BV(PCIE0);
 	//PCMSK0 |= _BV(PCINT5);
 
    
-   /**
-    * Set Timer 0 - 100usec
-    * Timer 8MHz/8 = 1MHz
-    * Count 100 => 100usec
+   /* TIMER 0
+    *
+    * Set Timer to 100usec. With XTAL 8MHz / 8 = 1MHz.
+    * Prescaler set to 8 we get 1MHZ which equals 1usec.
+    * Count 100 times and we have 100usec
+    * TCCR0B = (1 << CS01) sets the Prescaler to 8 (bit 11)
+    * and starts the timer
     */
+
    TCNT0  = 255-99;
    TIMSK0 = (1 << TOIE0); 
    TCCR0A = 0x00;
-   TCCR0B = (1 << CS01); //Set Prescaler to 8 (bit 11) and start timer
+   TCCR0B = (1 << CS01);
 
-   /**
-    * Set Timer 1 - 1 Hz | 1 sec.
-    * Count MAX_INT - (8MHz/1024)
+   /* TIMER 1
+    *
+    * We will use this timer as a 1 second clock. Prescaler at 1024
+    * and count MAX_INT - (8MHz/1024).
+    * TCCR1B = (1 << CS10) | (1 << CS12); sets the prescaler to 1024
+    * (bit 10 and 12) and starts the timer
     */
+   
    TCNT1  = 65535 - (F_CPU/1024);
    TIMSK1 = (1 << TOIE1); 
    TCCR1A = 0x00;
    TCCR1B = (1 << CS10) | (1 << CS12); //Set Prescaler to 1024 (bit 10 and 12) and start timer
-
-   /**
-    * Set Timer 2 Test for 1kHz, 500usec on 500us off
+   
+   /* TIMER 2
+    *
+    * Sets the timer to 1usec as timer 0. But we use it as needed
+    * and control the timer with TCCR2B. This timer with the ISR will
+    * generate the beeps being used in the repeater.
+    * Count 100 and we have 100usec as reference. The ISR will toggle
+    * the output pin.
     *
     */
+
    TCNT2  = 255-99;
    TIMSK2 = (1 << TOIE2); 
    TCCR2A = 0x00;
-   //TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11) and start timer
    TCCR2B = 0;
 
    morse_t *morse = morse_new();
@@ -248,7 +281,7 @@ int main(void) {
             // Normal tail ending. Add some time and beep
             tail_pending = true;
             delay_ms(800);
-            beep(16,25);
+            beep(32,25);
          }
 
          counter_tail = 0;
@@ -264,7 +297,7 @@ int main(void) {
             delay_ms(40);
             beep(4, 40);
          } else {
-            beep(10, 40);
+            beep(16, 40);
          }
 
          //morse_send_msg(morse, "R K");

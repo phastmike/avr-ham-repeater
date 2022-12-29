@@ -29,5 +29,5 @@ fuse:
 
 clean:
 	rm -f ${FILE_BINARY}
-	rm -f ${FILE_OBJECT}
+	rm -f ${FILE_OBJECT} morse.o
 	rm -f ${FILE_HEX}
