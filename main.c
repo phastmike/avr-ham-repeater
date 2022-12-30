@@ -50,8 +50,9 @@ static bool beep_tot_played = false;
 static bool tail_pending = false;
 
 
-void beep(unsigned char freq, unsigned int duration);
 void delay_ms(unsigned int ms);
+void beep_morse(unsigned int duration);
+void beep(unsigned char freq, unsigned int duration);
 
 
 /* PIN CHANGE Interrupt
@@ -159,6 +160,10 @@ void change_status(repeater_status_t status) {
 }
 */
 
+void beep_morse(unsigned int duration) {
+   beep(32, duration);
+}
+
 void beep(unsigned char freq, unsigned int duration) {
    beep_freq = freq;
    TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11 => 1 MHz) and start timer
@@ -228,7 +233,7 @@ int main(void) {
    TCCR2B = 0;
 
    morse_t *morse = morse_new();
-   morse_beep_delegate_connect(morse, beep);
+   morse_beep_delegate_connect(morse, beep_morse);
    morse_delay_delegate_connect(morse, delay_ms);
 
 	// Turn interrupts on.

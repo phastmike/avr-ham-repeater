@@ -28,7 +28,7 @@ void                             morse_send_msg(morse_t * morse,char * str);
 
 /* delegates | callbacks */
 
-void morse_beep_delegate_connect(morse_t *morse, void (*delegate)(unsigned char freq, unsigned int duration));
+void morse_beep_delegate_connect(morse_t *morse, void (*delegate)(unsigned int duration));
 void morse_delay_delegate_connect(morse_t *morse, void (*delegate)(unsigned int duration));
 
 

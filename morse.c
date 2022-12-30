@@ -30,7 +30,7 @@ struct _morse_t {
    unsigned char length_dot;
    unsigned char length_dash; 
 
-   void (* beep_delegate)(unsigned char freq, unsigned int duration);
+   void (* beep_delegate)(unsigned int duration);
    void (* delay_delegate)(unsigned int duration);
 };
 
@@ -84,13 +84,13 @@ struct t_mtab morsetab[] = {
 
 static void dash(morse_t *morse) {
    assert(morse != NULL);
-   morse->beep_delegate(4, morse->length_dash);
+   morse->beep_delegate(morse->length_dash);
    morse->delay_delegate(morse->length_dot);
 }
 
 static void dit(morse_t *morse) {
    assert(morse != NULL);
-   morse->beep_delegate(4, morse->length_dot);
+   morse->beep_delegate(morse->length_dot);
    morse->delay_delegate(morse->length_dot);
 }
 ///////////////////////////
@@ -185,7 +185,7 @@ unsigned char morse_length_dashed(morse_t *morse) {
    return morse->length_dash;
 }
 
-void morse_beep_delegate_connect(morse_t *morse, void (*delegate)(unsigned char freq, unsigned int duration)) {
+void morse_beep_delegate_connect(morse_t *morse, void (*delegate)(unsigned int duration)) {
    assert(morse != NULL);
    morse->beep_delegate = delegate;
 }
