@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <assert.h>
+#include <string.h>
 #include "morse.h"
 
 #define N_MORSE   (sizeof(morsetab)/sizeof(morsetab[0]))
@@ -93,7 +94,7 @@ static void dit(morse_t *morse) {
    morse->beep_delegate(morse->length_dot);
    morse->delay_delegate(morse->length_dot);
 }
-///////////////////////////
+
 static void send(morse_t *morse, char c) {
    assert(morse != NULL);
    
@@ -131,13 +132,6 @@ static void send(morse_t *morse, char c) {
 }
 
 /* Public */
-
-/* Only uppercase chars are sent as morse */
-void morse_send_msg(morse_t *morse, char *str) {
-   assert(morse != NULL);
-   while (*str)
-      send(morse, *str++) ;
-}
 
 morse_t * morse_new(void) {
    morse_t *morse = (morse_t *) calloc(1, sizeof(morse_t));
@@ -193,5 +187,12 @@ void morse_beep_delegate_connect(morse_t *morse, void (*delegate)(unsigned int d
 void morse_delay_delegate_connect(morse_t *morse, void (*delegate)(unsigned int duration)) {
    assert(morse != NULL);
    morse->delay_delegate = delegate;
+}
+
+void morse_send_msg(morse_t *morse, char *str) {
+   assert(morse != NULL);
+   char *msg = strupr(str);
+   while (*msg)
+      send(morse, *msg++) ;
 }
 
