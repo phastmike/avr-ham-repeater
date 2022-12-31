@@ -25,7 +25,7 @@
  */
 
 #define TIME_WAIT_ID    10
-#define TIME_ID_SEC     (600 - TIME_WAIT_ID)
+#define TIME_ID_SEC     (60 - TIME_WAIT_ID)
 
 /* TIME_TOT_SEC
  * Time Out Timer duration, Our default time is 3 min = 180 sec.
@@ -33,7 +33,12 @@
  * So they can timeout before the repeater.
  */
 
-#define TIME_TOT_SEC    182
+#define TIME_TOT_SEC    10
+
+/* Other definitions */
+
+#define DEFAULT_BEEP_DURATION    40
+#define DEFAULT_TX_OFF_PENALTY   400
 
 /*
  * Global variables
@@ -79,7 +84,7 @@ ISR(PCINT0_vect) {
 */
 
 ISR(TIMER0_OVF_vect){
-   if (IO_IS_ENABLED(PINB, PINB5)) {
+   if (IO_IS_ENABLED(PINB, IO_RPT_RX)) {
       // Started Receiving a signal
       // __/```
       IO_ENABLE(PORTD, IO_LED_RX);
@@ -170,7 +175,7 @@ void change_status(repeater_status_t status) {
 */
 
 void beep_morse(unsigned int duration) {
-   beep(3, duration);
+   beep(8, duration);
 }
 
 void beep(unsigned char freq, unsigned int duration) {
@@ -179,6 +184,33 @@ void beep(unsigned char freq, unsigned int duration) {
    delay_ms(duration);
    TCCR2B = 0;
 }
+
+/* ROGER BEEP */
+
+void beep_rx_off(void) {
+   beep(24,DEFAULT_BEEP_DURATION);
+}
+
+void beep_tail_normal(void) {
+   beep(16, DEFAULT_BEEP_DURATION);
+}
+
+void beep_tail_id(void) {
+   beep(4, DEFAULT_BEEP_DURATION);
+   delay_ms(40);
+   beep(4, DEFAULT_BEEP_DURATION);
+}
+
+void beep_timeout(void) {
+   beep(3, 25);
+   beep(5, 25);
+   beep(4, 15);
+   beep(6, 25);
+   beep(2, 25);
+   beep(8, 15);
+}
+
+/* Application Entry Point */
 
 int main(void) {
 
@@ -243,7 +275,7 @@ int main(void) {
 
    /* Morse generator init */
    morse_t *morse = morse_new();
-   morse_speed_set(morse, 30);
+   morse_speed_set(morse, 35);
    morse_beep_delegate_connect(morse, beep_morse);
    morse_delay_delegate_connect(morse, delay_ms);
 
@@ -257,16 +289,17 @@ int main(void) {
    IO_ENABLE(PORTD, IO_LED_TX);
    IO_ENABLE(PORTD, IO_PTT);
    delay_ms(500);
-   morse_send_msg(morse, " ON DE CQ0UGMR IN51UK");
+   morse_send_msg(morse, " DE CQ0UGMR IN51UK");
    delay_ms(500);
    IO_DISABLE(PORTD, IO_LED_TX);
    IO_DISABLE(PORTD, IO_PTT);
+
+   morse_speed_set(morse, 20);
 
 	while(true) {
 
       if (IO_IS_ENABLED(PINB, PINB5)) {
          IO_ENABLE(PORTD, IO_LED_TX);
-         //IO_ENABLE(PORTD, IO_RX_UNMUTE);
          IO_ENABLE(PORTD, IO_PTT);
          counter_tot = 0;
 
@@ -278,37 +311,30 @@ int main(void) {
             if (counter_tot > TIME_TOT_SEC && !beep_tot_played) {
                IO_ENABLE(PORTD, IO_LED_TOT);
                tot_enabled = true;
-               // FLAG TIMEOUT AND SEND BEEP
-               // TIMEOUT BEEP
-               delay_ms(50);
+               delay_ms(100);
                IO_DISABLE(PORTD, IO_RX_UNMUTE);
-               beep(3, 25);
-               beep(5, 25);
-               beep(4, 15);
-               beep(6, 25);
-               beep(2, 25);
-               beep(8, 15);
-               delay_ms(250);
+               beep_timeout();
+               delay_ms(100);
                beep_tot_played = true;
 
                IO_DISABLE(PORTD, IO_LED_TX);
                IO_DISABLE(PORTD, IO_PTT);
+               // FIXME: Add 1 sec penalti. Figure out the best way...
+               //delay_sec(1);
+               delay_ms(DEFAULT_TX_OFF_PENALTY);
             }
          }
-
 
          if (tot_enabled) {
             // TOT Enabled so we don't need the long tail
             tot_enabled = false; 
             tail_pending = false;
             IO_DISABLE(PORTD, IO_LED_TOT);
-            // FIXME: Add 1 sec penalti. Figure out the best way...
-            //delay_sec(1);
          } else {
             // Normal tail ending. Add some time and beep
             tail_pending = true;
-            delay_ms(300);
-            beep(24,20);
+            delay_ms(400);
+            beep_rx_off();
          }
 
          //IO_DISABLE(PORTD, IO_RX_UNMUTE);
@@ -316,22 +342,23 @@ int main(void) {
          counter_wait = 0;
       }
 
-      if (counter_tail >= 4 && tail_pending) {
+      if (counter_tail >= 5 && tail_pending) {
          tail_pending = false;
          counter_tail = 0;
 
          if (time_to_id) { 
-            beep(4, 20);
-            delay_ms(40);
-            beep(4, 20);
+            beep_tail_id();
          } else {
-            beep(16, 20);
+            beep_tail_normal();
          }
 
          delay_ms(460);
 
-         IO_DISABLE(PORTD, IO_LED_TX);
-         IO_DISABLE(PORTD, IO_PTT);
+         if (!IO_IS_ENABLED(PINB, IO_RPT_RX)) {
+            IO_DISABLE(PORTD, IO_LED_TX);
+            IO_DISABLE(PORTD, IO_PTT);
+            delay_ms(DEFAULT_TX_OFF_PENALTY);
+         }
       }
 
       /**
@@ -340,29 +367,36 @@ int main(void) {
        */
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
-         //IO_DISABLE(PORTD, IO_RX_UNMUTE);
          IO_ENABLE(PORTD, IO_ISD_PLAY);
          IO_ENABLE(PORTD, IO_PTT);
+         
          for (int c=0; c<21; c++) {
             IO_ENABLE(PORTD, IO_LED_TX);
-            _delay_ms(250); 
+            delay_ms(250); 
             IO_DISABLE(PORTD, IO_LED_TX);
-            _delay_ms(250);
+            delay_ms(250);
          }
+
          IO_DISABLE(PORTD, IO_ISD_PLAY);
          n_id++;
          if (n_id >= 6) {
+            IO_ENABLE(PORTD, IO_LED_TX);
             delay_ms(100);
             morse_send_msg(morse, "CQ0UGMR");
             delay_ms(100);
             n_id = 0;
+            IO_DISABLE(PORTD, IO_LED_TX);
          }
-         IO_DISABLE(PORTD, IO_PTT);
-         //IO_ENABLE(PORTD, IO_RX_UNMUTE);
-
+         
+         if (!IO_IS_ENABLED(PINB, IO_RPT_RX)) {
+            IO_DISABLE(PORTD, IO_LED_TX);
+            IO_DISABLE(PORTD, IO_PTT);
+            delay_ms(DEFAULT_TX_OFF_PENALTY);
+         } else {
+            IO_ENABLE(PORTD, IO_LED_TX);
+         }
          counter_id = 0;
          counter_wait = 0;
-         delay_ms(100);
       }
    }
 }
