@@ -25,7 +25,7 @@
  */
 
 #define TIME_WAIT_ID    10
-#define TIME_ID_SEC     (60 - TIME_WAIT_ID)
+#define TIME_ID_SEC     (600 - TIME_WAIT_ID)
 
 /* TIME_TOT_SEC
  * Time Out Timer duration, Our default time is 3 min = 180 sec.
@@ -37,8 +37,8 @@
 
 /* Other definitions */
 
-#define DEFAULT_BEEP_DURATION    40
-#define DEFAULT_TX_OFF_PENALTY   400
+#define DEFAULT_BEEP_DURATION_MS    40
+#define DEFAULT_TX_OFF_PENALTY_MS   400
 
 /*
  * Global variables
@@ -188,17 +188,17 @@ void beep(unsigned char freq, unsigned int duration) {
 /* ROGER BEEP */
 
 void beep_rx_off(void) {
-   beep(24,DEFAULT_BEEP_DURATION);
+   beep(24,DEFAULT_BEEP_DURATION_MS);
 }
 
 void beep_tail_normal(void) {
-   beep(16, DEFAULT_BEEP_DURATION);
+   beep(16, DEFAULT_BEEP_DURATION_MS);
 }
 
 void beep_tail_id(void) {
-   beep(4, DEFAULT_BEEP_DURATION);
+   beep(4, DEFAULT_BEEP_DURATION_MS);
    delay_ms(40);
-   beep(4, DEFAULT_BEEP_DURATION);
+   beep(4, DEFAULT_BEEP_DURATION_MS);
 }
 
 void beep_timeout(void) {
@@ -321,7 +321,7 @@ int main(void) {
                IO_DISABLE(PORTD, IO_PTT);
                // FIXME: Add 1 sec penalti. Figure out the best way...
                //delay_sec(1);
-               delay_ms(DEFAULT_TX_OFF_PENALTY);
+               delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
             }
          }
 
@@ -357,7 +357,7 @@ int main(void) {
          if (!IO_IS_ENABLED(PINB, IO_RPT_RX)) {
             IO_DISABLE(PORTD, IO_LED_TX);
             IO_DISABLE(PORTD, IO_PTT);
-            delay_ms(DEFAULT_TX_OFF_PENALTY);
+            delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
          }
       }
 
@@ -391,7 +391,7 @@ int main(void) {
          if (!IO_IS_ENABLED(PINB, IO_RPT_RX)) {
             IO_DISABLE(PORTD, IO_LED_TX);
             IO_DISABLE(PORTD, IO_PTT);
-            delay_ms(DEFAULT_TX_OFF_PENALTY);
+            delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
          } else {
             IO_ENABLE(PORTD, IO_LED_TX);
          }
