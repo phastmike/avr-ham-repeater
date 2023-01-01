@@ -33,12 +33,13 @@
  * So they can timeout before the repeater.
  */
 
-#define TIME_TOT_SEC    10
+#define TIME_TOT_SEC    182
 
 /* Other definitions */
 
 #define DEFAULT_BEEP_DURATION_MS    40
 #define DEFAULT_TX_OFF_PENALTY_MS   400
+#define DEFAULT_TAIL_DURATION_SEC   4
 
 /*
  * Global variables
@@ -224,7 +225,7 @@ void beep_rx_off(void) {
 }
 
 void beep_tail_normal(void) {
-   beep(16, DEFAULT_BEEP_DURATION_MS);
+   beep(8, DEFAULT_BEEP_DURATION_MS);
 }
 
 void beep_tail_id(void) {
@@ -307,7 +308,7 @@ int main(void) {
 
    /* Morse generator init */
    morse_t *morse = morse_new();
-   morse_speed_set(morse, 24);
+   morse_speed_set(morse, 25);
    morse_beep_delegate_connect(morse, beep_morse);
    morse_delay_delegate_connect(morse, delay_ms);
 
@@ -323,7 +324,7 @@ int main(void) {
    IO_ENABLE(PORTD, IO_PTT);
 
    delay_ms(500);
-   morse_send_msg(morse, " S ");
+   morse_send_msg(morse, " CQ0UGMR IN51UK ");
    delay_ms(500);
 
    IO_DISABLE(PORTD, IO_LED_TX);
@@ -356,6 +357,7 @@ int main(void) {
                IO_DISABLE(PORTD, IO_PTT);
                // FIXME: Penalti should be 5 sec. makes no sense though
                delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
+               delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
             }
          }
 
@@ -376,7 +378,7 @@ int main(void) {
          counter_wait = 0;
       }
 
-      if (counter_tail >= 5 && tail_pending) {
+      if (counter_tail >= DEFAULT_TAIL_DURATION_SEC && tail_pending) {
          tail_pending = false;
          counter_tail = 0;
 
