@@ -43,7 +43,6 @@
 /*
  * Global variables
  */
-volatile bool update = false;
 volatile unsigned int counter_tot = 0;
 volatile unsigned int counter_id  = 0;
 volatile unsigned int counter_wait= 0;
@@ -83,6 +82,12 @@ ISR(PCINT0_vect) {
 }
 */
 
+/* TIMER 0 OVERFLOW ISR
+ * Runs at 1 us and counts 100 = 100us period.
+ * This ISR enables/disables the RX LED and
+ * also toggles the 4066 switch (RX AUDIO)
+ */
+
 ISR(TIMER0_OVF_vect){
    if (IO_IS_ENABLED(PINB, IO_RPT_RX)) {
       // Started Receiving a signal
@@ -102,6 +107,11 @@ ISR(TIMER0_OVF_vect){
 
    TCNT0 = 255-99;
 }
+
+/* TIMER 1 OVERFLOW ISR
+ * Runs every 1 sec and updates the counters
+ * which use seconds to count.
+ */
 
 ISR(TIMER1_OVF_vect) {
    if (counter_id <= TIME_ID_SEC) {
@@ -124,6 +134,30 @@ ISR(TIMER1_OVF_vect) {
    TCNT1  = 65535 - (F_CPU/1024);
 }
 
+/* TIMER 2 OVERFLOW ISR
+ * Runs at 1uS and counts 100 = 100us.
+ * Being used for audio generation, morse and beeps
+
+    ___/```\___/```\__''__|
+   |---|---|---|---|--''--|
+
+ * Timer counts freq * 100uS then toggles state
+ * This means that the period for a square wave
+ * on the output pin is:
+ *
+ * period (sec) =  2 * freq * 100us
+ * frequency (Hz) = 1 / ( 2 * freq * 100u)
+ *
+ * The variable freq does not correspond to the real frequency
+ *
+ * Example:
+ *
+ * freq = 4
+ * frequency = 1 / (2 * 4 * 100u) = 1 / 800u
+ *           = 0.00125 MHz = 1.25 kHz = 1250 Hz
+ */
+
+
 ISR(TIMER2_OVF_vect) {
    counter_beep++;
    if (counter_beep > beep_freq) {
@@ -134,18 +168,16 @@ ISR(TIMER2_OVF_vect) {
 }
 
 void delay_sec(unsigned int sec) {
-   // FIXME: sec overflow
    if (sec > 0 && sec <= 65535) {
-      for (int c = 0; c <= (sec * 1000); c++) { 
-         _delay_ms(1);
+      for (int c = 0; c <= sec; c++) {
+         _delay_ms(1000);
       }
    }
 }
 
 void delay_ms(unsigned int ms) {
-   // FIXME:
    if (ms > 0 && ms <= 65535) {
-      for (int c = 0; c <= ms; c++) { 
+      for (int c = 0; c <= ms; c++) {
          _delay_ms(1);
       }
    }
@@ -215,7 +247,7 @@ void beep_timeout(void) {
 int main(void) {
 
    /* PORT B as Inputs */
-	DDRB = 0x00;
+   DDRB = 0x00;
 
    /* Set pins as outputs */
    DDRC |= _BV(DDC0);
@@ -223,14 +255,14 @@ int main(void) {
 
    intro_sequence();
 
-	/**
-	 * Pin Change Interrupt enable on PCINT0 (PB0)
-	 */
-	
-   //PCICR  = _BV(PCIE0);
-	//PCMSK0 |= _BV(PCINT5);
+   /**
+    * Pin Change Interrupt enable on PCINT0 (PB0)
+    */
 
-   
+   //PCICR  = _BV(PCIE0);
+   //PCMSK0 |= _BV(PCINT5);
+
+
    /* TIMER 0
     *
     * Set Timer to 100usec. With XTAL 8MHz / 8 = 1MHz.
@@ -252,12 +284,12 @@ int main(void) {
     * TCCR1B = (1 << CS10) | (1 << CS12); sets the prescaler to 1024
     * (bit 10 and 12) and starts the timer
     */
-   
+
    TCNT1  = 65535 - (F_CPU/1024);
    TIMSK1 = (1 << TOIE1); 
    TCCR1A = 0x00;
    TCCR1B = (1 << CS10) | (1 << CS12); //Set Prescaler to 1024 (bit 10 and 12) and start timer
-   
+
    /* TIMER 2
     *
     * Sets the timer to 1usec as timer 0. But we use it as needed
@@ -275,28 +307,31 @@ int main(void) {
 
    /* Morse generator init */
    morse_t *morse = morse_new();
-   morse_speed_set(morse, 35);
+   morse_speed_set(morse, 24);
    morse_beep_delegate_connect(morse, beep_morse);
    morse_delay_delegate_connect(morse, delay_ms);
 
-	// Turn interrupts on.
-	sei();
+   // Turn interrupts on.
+   sei();
 
    
-   IO_DISABLE(PORTD, IO_RX_UNMUTE);
+   // Turn off RX AUDIO - Redundant as ISR will force state
+   // IO_DISABLE(PORTD, IO_RX_UNMUTE);
 
    /* TURN ON REPEATER ID */
    IO_ENABLE(PORTD, IO_LED_TX);
    IO_ENABLE(PORTD, IO_PTT);
+
    delay_ms(500);
-   morse_send_msg(morse, " DE CQ0UGMR IN51UK");
+   morse_send_msg(morse, " S ");
    delay_ms(500);
+
    IO_DISABLE(PORTD, IO_LED_TX);
    IO_DISABLE(PORTD, IO_PTT);
 
-   morse_speed_set(morse, 20);
+   delay_ms(500);
 
-	while(true) {
+   while(true) {
 
       if (IO_IS_ENABLED(PINB, PINB5)) {
          IO_ENABLE(PORTD, IO_LED_TX);
@@ -319,8 +354,7 @@ int main(void) {
 
                IO_DISABLE(PORTD, IO_LED_TX);
                IO_DISABLE(PORTD, IO_PTT);
-               // FIXME: Add 1 sec penalti. Figure out the best way...
-               //delay_sec(1);
+               // FIXME: Penalti should be 5 sec. makes no sense though
                delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
             }
          }
