@@ -25,7 +25,7 @@
  */
 
 #define TIME_WAIT_ID    10
-#define TIME_ID_SEC     (600 - TIME_WAIT_ID)
+#define TIME_ID_SEC     (60 - TIME_WAIT_ID)
 
 /* TIME_TOT_SEC
  * Time Out Timer duration, Our default time is 3 min = 180 sec.
@@ -33,13 +33,15 @@
  * So they can timeout before the repeater.
  */
 
-#define TIME_TOT_SEC    182
+#define TIME_TOT_SEC    10
 
 /* Other definitions */
 
-#define DEFAULT_BEEP_DURATION_MS    40
-#define DEFAULT_TX_OFF_PENALTY_MS   400
-#define DEFAULT_TAIL_DURATION_SEC   4
+#define DEFAULT_BEEP_DURATION_MS       40
+#define DEFAULT_TX_OFF_PENALTY_MS      200
+#define DEFAULT_TAIL_DURATION_SEC      8000  /* multiples of 100us */ 
+#define DEFAULT_TOT_INHIBIT_DURATION   15000 /* multiples of 100us */ 
+#define DEFAULT_INHIBIT_TX_DURATION    5
 
 /*
  * Global variables
@@ -49,12 +51,15 @@ volatile unsigned int counter_id  = 0;
 volatile unsigned int counter_wait= 0;
 volatile unsigned int counter_beep= 0;
 volatile unsigned int counter_tail= 0;
+volatile unsigned int counter_tot_inhibit = 0;
+volatile unsigned int counter_inhibit_tx  = 0;
 volatile bool time_to_tot = false;
 volatile bool time_to_id  = false;
 volatile bool tot_enabled = false;
 volatile unsigned int beep_freq   = 17;
 static bool beep_tot_played = false;
 static bool tail_pending = false;
+static bool tot_inhibit = false;
 static unsigned char n_id = 0;
 
 
@@ -97,6 +102,7 @@ ISR(TIMER0_OVF_vect){
       if (!tot_enabled) {
          IO_ENABLE(PORTD, IO_RX_UNMUTE);
       }
+      if (tot_inhibit) counter_tot_inhibit = 0;
    } else {
       // Stopped receiving a signal
       // ```\__
@@ -105,6 +111,9 @@ ISR(TIMER0_OVF_vect){
          IO_DISABLE(PORTD, IO_RX_UNMUTE);
       }
    }
+
+   if (tail_pending) counter_tail++;
+   if (tot_inhibit) counter_tot_inhibit++;
 
    TCNT0 = 255-99;
 }
@@ -130,7 +139,7 @@ ISR(TIMER1_OVF_vect) {
       counter_wait++;
    }
 
-   if (tail_pending) counter_tail++;
+   if (tot_inhibit) counter_inhibit_tx++;
 
    TCNT1  = 65535 - (F_CPU/1024);
 }
@@ -323,8 +332,11 @@ int main(void) {
    IO_ENABLE(PORTD, IO_LED_TX);
    IO_ENABLE(PORTD, IO_PTT);
 
+   for(int x=64; x > 0; x--)
+      beep(x,DEFAULT_BEEP_DURATION_MS);
    delay_ms(500);
-   morse_send_msg(morse, " CQ0UGMR IN51UK ");
+   morse_send_msg(morse, " S ");
+   //morse_send_msg(morse, " CQ0UGMR IN51UK ");
    delay_ms(500);
 
    IO_DISABLE(PORTD, IO_LED_TX);
@@ -337,7 +349,9 @@ int main(void) {
       if (IO_IS_ENABLED(PINB, PINB5)) {
          IO_ENABLE(PORTD, IO_LED_TX);
          IO_ENABLE(PORTD, IO_PTT);
-         counter_tot = 0;
+         if (!tail_pending) {
+            counter_tot = 0;
+         }
 
          beep_tot_played = false;
 
@@ -355,32 +369,55 @@ int main(void) {
 
                IO_DISABLE(PORTD, IO_LED_TX);
                IO_DISABLE(PORTD, IO_PTT);
-               // FIXME: Penalti should be 5 sec. makes no sense though
-               delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
-               delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
             }
          }
 
+
          if (tot_enabled) {
             // TOT Enabled so we don't need the long tail
+            // PENALTY ENFORCER - Waits DEFAULT_TOT_INHIBIT_DURATION of radio silence
+            counter_inhibit_tx = 0;
+            tot_inhibit = true;
+            counter_tot_inhibit = 0;
+            while (counter_tot_inhibit < DEFAULT_TOT_INHIBIT_DURATION) {
+               IO_DISABLE(PORTD, IO_LED_TOT);
+               delay_ms(50); 
+               //if (IO_IS_ENABLED(PINB, IO_RPT_RX) counter_tot_inhibit = 0;
+               if(counter_inhibit_tx >= DEFAULT_INHIBIT_TX_DURATION) {
+                  IO_ENABLE(PORTD, IO_LED_TOT);
+                  IO_ENABLE(PORTD, IO_LED_TX);
+                  IO_ENABLE(PORTD, IO_PTT);
+                  morse_send_msg(morse, " QRX ");
+                  IO_DISABLE(PORTD, IO_LED_TX);
+                  IO_DISABLE(PORTD, IO_PTT);
+                  counter_inhibit_tx = 0;
+               }
+               IO_ENABLE(PORTD, IO_LED_TOT);
+               delay_ms(50); 
+            }
+            IO_DISABLE(PORTD, IO_LED_TOT);
+            IO_ENABLE(PORTD, IO_LED_TX);
+            IO_ENABLE(PORTD, IO_PTT);
+            morse_send_msg(morse, " K ");
+            IO_DISABLE(PORTD, IO_LED_TX);
+            IO_DISABLE(PORTD, IO_PTT);
+            tot_inhibit = false;
             tot_enabled = false; 
             tail_pending = false;
-            IO_DISABLE(PORTD, IO_LED_TOT);
          } else {
             // Normal tail ending. Add some time and beep
             tail_pending = true;
-            delay_ms(400);
+            delay_ms(200);
             beep_rx_off();
          }
 
          //IO_DISABLE(PORTD, IO_RX_UNMUTE);
          counter_tail = 0;
          counter_wait = 0;
+         counter_tot_inhibit = 0;
       }
 
-      if (counter_tail >= DEFAULT_TAIL_DURATION_SEC && tail_pending) {
-         tail_pending = false;
-         counter_tail = 0;
+      if (counter_tail >= DEFAULT_TAIL_DURATION_SEC && tail_pending && !IO_IS_ENABLED(PINB, IO_RPT_RX)) {
 
          if (time_to_id) { 
             beep_tail_id();
@@ -388,13 +425,11 @@ int main(void) {
             beep_tail_normal();
          }
 
-         delay_ms(460);
-
-         if (!IO_IS_ENABLED(PINB, IO_RPT_RX)) {
-            IO_DISABLE(PORTD, IO_LED_TX);
-            IO_DISABLE(PORTD, IO_PTT);
-            delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
-         }
+         IO_DISABLE(PORTD, IO_LED_TX);
+         IO_DISABLE(PORTD, IO_PTT);
+         delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
+         tail_pending = false;
+         counter_tail = 0;
       }
 
       /**
