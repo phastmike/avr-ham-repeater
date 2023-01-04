@@ -24,8 +24,8 @@
  * We subtract the wait time to make the "correct" time = 600 - TIME_WAIT_ID.
  */
 
-#define TIME_WAIT_ID    10
-#define TIME_ID_SEC     (60 - TIME_WAIT_ID)
+#define TIME_WAIT_ID    6
+#define TIME_ID_SEC     (600 - TIME_WAIT_ID)
 
 /* TIME_TOT_SEC
  * Time Out Timer duration, Our default time is 3 min = 180 sec.
@@ -61,6 +61,7 @@ static bool beep_tot_played = false;
 static bool tail_pending = false;
 static bool tot_inhibit = false;
 static unsigned char n_id = 0;
+static bool tot_play_end = false;
 
 
 void delay_ms(unsigned int ms);
@@ -198,13 +199,13 @@ void intro_sequence(void) {
    // And do a boot animation by lighting
    // all leds sequentially.
    PORTD = 0x0;
-   delay_sec(1);
+   delay_ms(500);
    IO_ENABLE(PORTD, IO_LED_RX);
-   delay_sec(1);
+   delay_ms(500);
    IO_ENABLE(PORTD, IO_LED_TX);
-   delay_sec(1);
+   delay_ms(500);
    IO_ENABLE(PORTD, IO_LED_TOT);
-   delay_sec(1);
+   delay_ms(500);
    PORTD = 0x0;
 }
 
@@ -230,7 +231,8 @@ void beep(unsigned char freq, unsigned int duration) {
 /* ROGER BEEP */
 
 void beep_rx_off(void) {
-   beep(24,DEFAULT_BEEP_DURATION_MS);
+   //beep(24,DEFAULT_BEEP_DURATION_MS);
+   beep(48,DEFAULT_BEEP_DURATION_MS);
 }
 
 void beep_tail_normal(void) {
@@ -246,10 +248,11 @@ void beep_tail_id(void) {
 void beep_timeout(void) {
    beep(3, 25);
    beep(5, 25);
-   beep(4, 15);
+   beep(4, 25);
+   beep(1, 25);
    beep(6, 25);
    beep(2, 25);
-   beep(8, 15);
+   beep(8, 25);
 }
 
 /* Application Entry Point */
@@ -317,7 +320,7 @@ int main(void) {
 
    /* Morse generator init */
    morse_t *morse = morse_new();
-   morse_speed_set(morse, 25);
+   morse_speed_set(morse, 28);
    morse_beep_delegate_connect(morse, beep_morse);
    morse_delay_delegate_connect(morse, delay_ms);
 
@@ -332,8 +335,8 @@ int main(void) {
    IO_ENABLE(PORTD, IO_LED_TX);
    IO_ENABLE(PORTD, IO_PTT);
 
-   for(int x=64; x > 0; x--)
-      beep(x,DEFAULT_BEEP_DURATION_MS);
+   for(int x=128; x > 0; x--)
+      beep(x,10);
    delay_ms(500);
    morse_send_msg(morse, " S ");
    //morse_send_msg(morse, " CQ0UGMR IN51UK ");
@@ -355,7 +358,7 @@ int main(void) {
 
          beep_tot_played = false;
 
-         while (IO_IS_ENABLED(PINB, PINB5)) {
+         while (IO_IS_ENABLED(PINB, PINB5) && !tot_enabled) {
             asm("");
             
             if (counter_tot > TIME_TOT_SEC && !beep_tot_played) {
@@ -372,13 +375,14 @@ int main(void) {
             }
          }
 
-
          if (tot_enabled) {
             // TOT Enabled so we don't need the long tail
             // PENALTY ENFORCER - Waits DEFAULT_TOT_INHIBIT_DURATION of radio silence
             counter_inhibit_tx = 0;
             tot_inhibit = true;
             counter_tot_inhibit = 0;
+            tot_play_end = false;
+
             while (counter_tot_inhibit < DEFAULT_TOT_INHIBIT_DURATION) {
                IO_DISABLE(PORTD, IO_LED_TOT);
                delay_ms(50); 
@@ -387,20 +391,25 @@ int main(void) {
                   IO_ENABLE(PORTD, IO_LED_TOT);
                   IO_ENABLE(PORTD, IO_LED_TX);
                   IO_ENABLE(PORTD, IO_PTT);
-                  morse_send_msg(morse, " QRX ");
+                  morse_send_msg(morse, " TOT ");  // hold - qrx
                   IO_DISABLE(PORTD, IO_LED_TX);
                   IO_DISABLE(PORTD, IO_PTT);
                   counter_inhibit_tx = 0;
+                  tot_play_end = true;
                }
                IO_ENABLE(PORTD, IO_LED_TOT);
                delay_ms(50); 
             }
             IO_DISABLE(PORTD, IO_LED_TOT);
-            IO_ENABLE(PORTD, IO_LED_TX);
-            IO_ENABLE(PORTD, IO_PTT);
-            morse_send_msg(morse, " K ");
-            IO_DISABLE(PORTD, IO_LED_TX);
-            IO_DISABLE(PORTD, IO_PTT);
+
+            if (tot_play_end) {
+               IO_ENABLE(PORTD, IO_LED_TX);
+               IO_ENABLE(PORTD, IO_PTT);
+               morse_send_msg(morse, " K "); // Enabled TX again
+               IO_DISABLE(PORTD, IO_LED_TX);
+               IO_DISABLE(PORTD, IO_PTT);
+            }
+
             tot_inhibit = false;
             tot_enabled = false; 
             tail_pending = false;
