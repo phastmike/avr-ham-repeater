@@ -5,6 +5,7 @@
  *
  * ATMEGA328P Repeater controller for CQ0UGMR
  *
+ * CT1ENQ
  * José Miguel Fonte
  */
 
@@ -35,42 +36,68 @@
 
 #define TIME_WAIT_ID    6
 #define TIME_ID_SEC     (600 - TIME_WAIT_ID)
+
+/* N_ID_FOR_MORSE
+ * Number of ISD Identifications at which the morse ID 
+ * will play after the ISD ID (Voice ID). 
+ * For 10 minutes, 600 sec. IDs, every hour, morse ID
+ * will follow along.
+ *
+ * Default: 6
+ */
+
 #define N_ID_FOR_MORSE  6
+
+/* MORSE_ID_x
+ * Set of strings used for morse code regarding this repeater
+ */
+
+#define MORSE_MSG_CALL  "CQ0UGMR"
+#define MORSE_MSG_QTH   "IN51UK"
+#define MORSE_TOT_INFO  "TOT"
+#define MORSE_TOT_END   "K"
+#define MORSE_RPT_START "S"
+#define MORSE_ID        MORSE_MSG_CALL // MORSE_MSG_CALL " " MORSE_MSG_QTH
+
 
 /* TIME_TOT_SEC
  * Time Out Timer duration, Our default time is 3 min = 180 sec.
  * Added additional 2 seconds for radios with only 3 minutes TOT
  * So they can timeout before the repeater.
+ *
+ * Default: 180 + 2
  */
 
 #define TIME_TOT_SEC    182
 
 /* Other definitions */
 
+#define BEEP_RX_OFF_ENABLED               false
 #define DEFAULT_BEEP_DURATION_MS          40
 #define DEFAULT_TX_OFF_PENALTY_MS         200
 #define DEFAULT_TAIL_DURATION_MS          800 
 #define DEFAULT_TOT_INHIBIT_DURATION_MS   1500
-#define DEFAULT_INHIBIT_TX_DURATION       5
+#define DEFAULT_INHIBIT_TX_DURATION_SEC   5
 
 /* GLOBAL VARIABLES */
 
-volatile unsigned int counter_tot = 0;
-volatile unsigned int counter_id  = 0;
-volatile unsigned int counter_wait= 0;
-volatile unsigned int counter_beep= 0;
-volatile unsigned int counter_tail= 0;
+volatile unsigned int counter_tot         = 0;
+volatile unsigned int counter_id          = 0;
+volatile unsigned int counter_wait        = 0;
+volatile unsigned int counter_beep        = 0;
+volatile unsigned int counter_tail        = 0;
 volatile unsigned int counter_tot_inhibit = 0;
 volatile unsigned int counter_inhibit_tx  = 0;
-volatile bool time_to_tot = false;
-volatile bool time_to_id  = false;
-volatile bool tot_enabled = false;
-volatile unsigned int beep_freq   = 17;
-static bool beep_tot_played = false;
-static bool tail_pending = false;
-static bool tot_inhibit = false;
-static unsigned char n_id = 0;
-static bool tot_play_end = false;
+volatile bool time_to_tot                 = false;
+volatile bool time_to_id                  = false;
+volatile bool tot_enabled                 = false;
+volatile bool rx_audio_disable            = false;
+volatile unsigned int beep_freq           = 17;
+static bool beep_tot_played               = false;
+static bool tail_pending                  = false;
+static bool tot_inhibit                   = false;
+static unsigned char n_id                 = 0;
+static bool tot_play_end                  = false;
 
 /******************************************************************************
  * TIMER ISR's
@@ -86,16 +113,22 @@ ISR(TIMER0_OVF_vect){
    if (IO_IS_ENABLED(PINB, IO_RPT_RX)) {
       // Started Receiving a signal
       // __/```
+
       IO_ENABLE(PORTD, IO_LED_RX);
-      if (!tot_enabled) {
+
+      if (!tot_enabled && !rx_audio_disable) {
          IO_ENABLE(PORTD, IO_RX_UNMUTE);
       }
+
       if (tot_inhibit) counter_tot_inhibit = 0;
+
    } else {
       // Stopped receiving a signal
       // ```\__
+
       IO_DISABLE(PORTD, IO_LED_RX);
-      if (!tot_enabled) {
+
+      if (!tot_enabled && !rx_audio_disable) {
          IO_DISABLE(PORTD, IO_RX_UNMUTE);
       }
    }
@@ -207,15 +240,15 @@ void beep(unsigned char freq, unsigned int duration) {
 }
 
 void beep_morse(unsigned int duration) {
-   beep(8, duration);
+   beep(6, duration);
 }
 
 void beep_rx_off(void) {
-   beep(48,DEFAULT_BEEP_DURATION_MS);
+   beep(20, DEFAULT_BEEP_DURATION_MS);
 }
 
 void beep_tail_normal(void) {
-   beep(16, DEFAULT_BEEP_DURATION_MS);
+   beep(4, DEFAULT_BEEP_DURATION_MS * 2);
 }
 
 void beep_tail_id(void) {
@@ -234,14 +267,22 @@ void beep_timeout(void) {
    beep(8, 25);
 }
 
+void beep_on_boot(void) {
+   for(int x=128; x > 0; x--) {
+      beep(x,5);
+   }
+}
+
 /******************************************************************************
  * HELPER FUNCTIONS 
  *****************************************************************************/
 
+/* Wait a bit for signals to stabilize
+ * And do a boot animation by lighting
+ * all leds sequentially.
+ */
+
 void intro_sequence(void) {
-   // Wait a bit for signals to stabilize
-   // And do a boot animation by lighting
-   // all leds sequentially.
    PORTD = 0x0;
    delay_ms(1000);
    IO_ENABLE(PORTD, IO_LED_RX);
@@ -253,19 +294,24 @@ void intro_sequence(void) {
    PORTD = 0x0;
 }
 
-/******************************************************************************
- * APPLICATION ENTRY POINT 
- *****************************************************************************/
+/* Setup IO ports */
 
-int main(void) {
-
+void setup_io(void) {
    /* PORT B as Inputs */
    DDRB = 0x00;
 
    /* Set pins as outputs */
    DDRC |= _BV(DDC0);
    DDRD |= _BV(DDD5) + _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD1) + _BV(DDD0);
+}
 
+/******************************************************************************
+ * APPLICATION ENTRY POINT 
+ *****************************************************************************/
+
+int main(void) {
+
+   setup_io();
    intro_sequence();
 
    /* Morse generator init */
@@ -320,23 +366,22 @@ int main(void) {
    /* Turn interrupts on */ 
    sei();
 
+   /* On boot beeping */
    IO_ENABLE(PORTD, IO_LED_TX);
    IO_ENABLE(PORTD, IO_PTT);
 
    delay_ms(500);
-
-   for(int x=128; x > 0; x--) {
-      beep(x,10);
-   }
-
+   beep_on_boot();
    delay_ms(500);
-   morse_send_msg(morse, "S");
+   morse_send_msg(morse, MORSE_RPT_START);
    delay_ms(500);
    
    IO_DISABLE(PORTD, IO_LED_TX);
    IO_DISABLE(PORTD, IO_PTT);
 
    delay_ms(500);
+
+   /* Superloop */
 
    while(true) {
 
@@ -367,8 +412,6 @@ int main(void) {
          }
 
          if (tot_enabled) {
-            // TOT Enabled so we don't need the long tail
-            // PENALTY ENFORCER - Waits DEFAULT_TOT_INHIBIT_DURATION_MS of radio silence
             counter_inhibit_tx = 0;
             tot_inhibit = true;
             counter_tot_inhibit = 0;
@@ -377,12 +420,13 @@ int main(void) {
             while (counter_tot_inhibit < (DEFAULT_TOT_INHIBIT_DURATION_MS * 10)) {
                IO_DISABLE(PORTD, IO_LED_TOT);
                delay_ms(50); 
-               //if (IO_IS_ENABLED(PINB, IO_RPT_RX) counter_tot_inhibit = 0;
-               if(counter_inhibit_tx >= DEFAULT_INHIBIT_TX_DURATION) {
+               if(counter_inhibit_tx >= DEFAULT_INHIBIT_TX_DURATION_SEC) {
                   IO_ENABLE(PORTD, IO_LED_TOT);
                   IO_ENABLE(PORTD, IO_LED_TX);
                   IO_ENABLE(PORTD, IO_PTT);
-                  morse_send_msg(morse, " TOT ");
+                  delay_ms(200);
+                  morse_send_msg(morse, MORSE_TOT_INFO);
+                  delay_ms(200);
                   IO_DISABLE(PORTD, IO_LED_TX);
                   IO_DISABLE(PORTD, IO_PTT);
                   counter_inhibit_tx = 0;
@@ -391,12 +435,15 @@ int main(void) {
                IO_ENABLE(PORTD, IO_LED_TOT);
                delay_ms(50); 
             }
+
             IO_DISABLE(PORTD, IO_LED_TOT);
 
             if (tot_play_end) {
                IO_ENABLE(PORTD, IO_LED_TX);
                IO_ENABLE(PORTD, IO_PTT);
-               morse_send_msg(morse, " K ");
+               delay_ms(200);
+               morse_send_msg(morse, MORSE_TOT_END);
+               delay_ms(200);
                IO_DISABLE(PORTD, IO_LED_TX);
                IO_DISABLE(PORTD, IO_PTT);
             }
@@ -407,11 +454,12 @@ int main(void) {
          } else {
             // Normal tail ending. Add some time and beep
             tail_pending = true;
-            //delay_ms(200);
-            //beep_rx_off();
+            if (BEEP_RX_OFF_ENABLED) {
+               delay_ms(200);
+               beep_rx_off();
+            }
          }
 
-         //IO_DISABLE(PORTD, IO_RX_UNMUTE);
          counter_tail = 0;
          counter_wait = 0;
          counter_tot_inhibit = 0;
@@ -419,6 +467,7 @@ int main(void) {
 
       if (counter_tail >= (DEFAULT_TAIL_DURATION_MS * 10) && tail_pending && !IO_IS_ENABLED(PINB, IO_RPT_RX)) {
 
+         rx_audio_disable = true;
          if (time_to_id) { 
             beep_tail_id();
          } else {
@@ -428,6 +477,7 @@ int main(void) {
          IO_DISABLE(PORTD, IO_LED_TX);
          IO_DISABLE(PORTD, IO_PTT);
          delay_ms(DEFAULT_TX_OFF_PENALTY_MS);
+         rx_audio_disable = false;
          tail_pending = false;
          counter_tail = 0;
       }
@@ -436,6 +486,7 @@ int main(void) {
        * It's time to ID? If so, we can count if it has
        * been free in the last TIME_WAIT_ID seconds
        */
+
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
          IO_ENABLE(PORTD, IO_ISD_PLAY);
@@ -453,7 +504,7 @@ int main(void) {
          if (n_id >= N_ID_FOR_MORSE) {
             IO_ENABLE(PORTD, IO_LED_TX);
             delay_ms(100);
-            morse_send_msg(morse, "CQ0UGMR");
+            morse_send_msg(morse, MORSE_ID);
             delay_ms(100);
             n_id = 0;
             IO_DISABLE(PORTD, IO_LED_TX);
