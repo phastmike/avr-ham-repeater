@@ -276,9 +276,10 @@ void beep_on_boot(void) {
  * HELPER FUNCTIONS 
  *****************************************************************************/
 
-/* Wait a bit for signals to stabilize
+/* Wait a bit for radios to stabilize
  * And do a boot animation by lighting
- * all leds sequentially.
+ * all leds sequentially and remain light
+ * over 2 sec.
  */
 
 void intro_sequence(void) {
