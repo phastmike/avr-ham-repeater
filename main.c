@@ -173,18 +173,16 @@ ISR(TIMER1_OVF_vect) {
     ___/```\___/```\__''__|
    |---|---|---|---|--''--|
 
- * Timer counts freq * 100uS then toggles state
+ * Timer counts hperiod * 100uS then toggles state
  * This means that the period for a square wave
  * on the output pin is:
  *
- * period (sec) =  2 * freq * 100us
- * frequency (Hz) = 1 / ( 2 * freq * 100u)
- *
- * The variable freq does not correspond to the real frequency
+ * period (sec) =  2 * hperiod * 100us
+ * frequency (Hz) = 1 / ( 2 * hperiod * 100u)
  *
  * Example:
  *
- * freq = 4
+ * hperiod = 4
  * frequency = 1 / (2 * 4 * 100u) = 1 / 800u
  *           = 0.00125 MHz = 1.25 kHz = 1250 Hz
  */
