@@ -52,6 +52,7 @@
  * Set of strings used for morse code regarding this repeater
  */
 
+#define MORSE_WPM       28
 #define MORSE_MSG_CALL  "CQ0UGMR"
 #define MORSE_MSG_QTH   "IN51UK"
 #define MORSE_TOT_INFO  "TOT"
@@ -92,7 +93,7 @@ volatile bool time_to_tot                 = false;
 volatile bool time_to_id                  = false;
 volatile bool tot_enabled                 = false;
 volatile bool rx_audio_disable            = false;
-volatile unsigned int beep_freq           = 17;
+volatile unsigned int beep_hperiod        = 4;
 static bool beep_tot_played               = false;
 static bool tail_pending                  = false;
 static bool tot_inhibit                   = false;
@@ -136,7 +137,7 @@ ISR(TIMER0_OVF_vect){
    if (tail_pending) counter_tail++;
    if (tot_inhibit) counter_tot_inhibit++;
 
-   TCNT0 = 255-99;
+   TCNT0 = 256-100;
 }
 
 /* TIMER 1 OVERFLOW ISR
@@ -162,7 +163,7 @@ ISR(TIMER1_OVF_vect) {
 
    if (tot_inhibit) counter_inhibit_tx++;
 
-   TCNT1  = 65535 - (F_CPU/1024);
+   TCNT1  = 65536 - (F_CPU/1024);
 }
 
 /* TIMER 2 OVERFLOW ISR
@@ -191,11 +192,11 @@ ISR(TIMER1_OVF_vect) {
 
 ISR(TIMER2_OVF_vect) {
    counter_beep++;
-   if (counter_beep > beep_freq) {
+   if (counter_beep > beep_hperiod) {
       IO_TOGGLE(PORTC, IO_BEEP);
       counter_beep = 0;
    }
-   TCNT2  = 255-99;
+   TCNT2 = 256-100;
 }
 
 /******************************************************************************
@@ -232,8 +233,8 @@ void change_status(repeater_status_t status) {
  * BEEP and BEEPS - Audio functions. 
  *****************************************************************************/
 
-void beep(unsigned char freq, unsigned int duration) {
-   beep_freq = freq;
+void beep(unsigned char hperiod, unsigned int duration) {
+   beep_hperiod = hperiod;
    TCCR2B = (1 << CS21); //Set Prescaler to 8 (bit 11 => 1 MHz) and start timer
    delay_ms(duration);
    TCCR2B = 0;
@@ -284,13 +285,13 @@ void beep_on_boot(void) {
 
 void intro_sequence(void) {
    PORTD = 0x0;
-   delay_ms(1000);
+   delay_ms(500);
    IO_ENABLE(PORTD, IO_LED_RX);
-   delay_ms(1000);
+   delay_ms(500);
    IO_ENABLE(PORTD, IO_LED_TX);
-   delay_ms(1000);
+   delay_ms(500);
    IO_ENABLE(PORTD, IO_LED_TOT);
-   delay_ms(1000);
+   delay_ms(2500);
    PORTD = 0x0;
 }
 
@@ -316,7 +317,7 @@ int main(void) {
 
    /* Morse generator init */
    morse_t *morse = morse_new();
-   morse_speed_set(morse, 28);
+   morse_speed_set(morse, MORSE_WPM);
    morse_beep_delegate_connect(morse, beep_morse);
    morse_delay_delegate_connect(morse, delay_ms);
 
@@ -329,7 +330,7 @@ int main(void) {
     * and starts the timer
     */
 
-   TCNT0  = 255-99;
+   TCNT0  = 256-100;
    TIMSK0 = (1 << TOIE0); 
    TCCR0A = 0x00;
    TCCR0B = (1 << CS01);
@@ -357,7 +358,7 @@ int main(void) {
     *
     */
 
-   TCNT2  = 255-99;
+   TCNT2  = 256-100;
    TIMSK2 = (1 << TOIE2); 
    TCCR2A = 0x00;
    TCCR2B = 0;

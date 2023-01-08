@@ -21,7 +21,7 @@
 #define N_MORSE   (sizeof(morsetab)/sizeof(morsetab[0]))
 
 #define DEFAULT_SPEED   24
-#define DEFAULT_WEIGHT  3.5 /* CW dash to to weight def as 3.5 */
+#define DEFAULT_WEIGHT  3.0 /* CW dash to to weight def as 3.5 */
 #define DOTLEN          (1200/CW_SPEED)
 #define DASHLEN         (WEIGHT * DOTLEN)
 
