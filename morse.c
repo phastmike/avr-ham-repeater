@@ -1,13 +1,13 @@
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 3; tab-width: 3 -*- */
-/* vim: set tabstop=3 softtabstop=3 shiftwidth=3 expandtab :                  */
+/* vim: set tabstop=3 softtabstop=3 shiftwidth=3 expandtab :               */
 /*
- * io.h
+ * morse.h
  *
  * Morse implementatiob file
  * 
  * Uses Mark VandeWettering K6HX algorithm
- * As no other reference other than ON7EQ
- * Nevertheless tnx to author, nice catch
+ * as referenced by ON7EQ. Nevertheless tnx
+ * to author, nice catch.
  *
  * José Miguel Fonte
  */
@@ -18,10 +18,12 @@
 #include <string.h>
 #include "morse.h"
 
-#define N_MORSE   (sizeof(morsetab)/sizeof(morsetab[0]))
-
-#define DEFAULT_SPEED   24
+#define DEFAULT_WPM     24
+#define WPM_MIN         10
+#define WPM_MAX         60
 #define DEFAULT_WEIGHT  3.0 /* CW dash to to weight def as 3.5 */
+#define WEIGHT_MIN      2.5
+#define WEIGHT_MAX      4.5
 #define DOTLEN          (1200/CW_SPEED)
 #define DASHLEN         (WEIGHT * DOTLEN)
 
@@ -81,6 +83,8 @@ struct t_mtab morsetab[] = {
 	{'0', 63}
 };
 
+#define N_MORSE   (sizeof(morsetab)/sizeof(morsetab[0]))
+
 /* Private */
 
 static void dash(morse_t *morse) {
@@ -135,7 +139,7 @@ static void send(morse_t *morse, char c) {
 
 morse_t * morse_new(void) {
    morse_t *morse = (morse_t *) calloc(1, sizeof(morse_t));
-   morse->speed = DEFAULT_SPEED;
+   morse->speed = DEFAULT_WPM;
    morse->weight = DEFAULT_WEIGHT;
    morse->length_dot = (1200/morse->speed);
    morse->length_dash= (morse->weight * morse->length_dot);
@@ -146,7 +150,7 @@ morse_t * morse_new(void) {
 
 void morse_speed_set(morse_t *morse, unsigned char speed) {
    assert(morse != NULL);
-   assert(speed >= 10 && speed <=60);
+   assert(speed >= WPM_MIN && speed <= WPM_MAX);
    morse->speed = speed;
    morse->length_dot = (1200/morse->speed);
    morse->length_dash= (morse->weight * morse->length_dot);
@@ -159,7 +163,7 @@ unsigned char morse_speed_get(morse_t *morse) {
 
 void morse_weigh_set(morse_t *morse, float weight) {
    assert(morse != NULL);
-   assert(weight >= 2.5 && weight <=4.5);
+   assert(weight >= WEIGHT_MIN && weight <= WEIGHT_MAX);
    morse->weight = weight;
    morse->length_dash = (morse->weight * morse->length_dot);
 }
