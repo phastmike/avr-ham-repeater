@@ -11,7 +11,7 @@ while the repeater is being used**.
 There was a problem though, no information existed regarding software and hardware.
 
 Meanwhile, after some time, Emanuel CT1BDV was able to supply what was the original
-schematic whithout the post modification/adaptations made by CT1BMU.
+schematic without the post modifications/adaptations made by CT1BMU.
 
 With the schematic and controller in our hands we were able to map those modifications
 and have a base schematic to work on for the software/firmware  which was lacking.
@@ -52,6 +52,19 @@ It uses all the three timers and a few IO pins:
 
 The C code has comments that better explain the implementation and most parameters
 are exposed as definitions that can be edited and then recompiled.
+
+### Implementation
+
+The new firmware implements the following:
+
+- TOT Time out timer (3 min.)
+- on TOT enter beep burst with rx audio mute
+- TOT penalty of 1 sec. No RX can happen for 1 sec. to disable TOT
+- while in time out, transmit "TOT" in Morse, every 5 sec.
+- on TOT leave transmit "K" in morse
+- 10 min. Voice ID (ISD)
+- when reaching ID time, the last 6 sec must be without any rx (ID wait)
+- every hour, after the voice ID, the callsign is also sent in morse
 
 ### Build the firware
 
