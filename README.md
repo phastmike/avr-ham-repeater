@@ -59,12 +59,13 @@ The new firmware implements the following:
 
 - TOT Time out timer (3 min.)
 - on TOT enter beep burst with rx audio mute
-- TOT penalty of 1 sec. No RX can happen for 1 sec. to disable TOT
+- TOT penalty of 1.5 sec. No RX can happen for 1 sec. to disable TOT
 - while in time out, transmit "TOT" in Morse, every 5 sec.
 - on TOT leave transmit "K" in morse
 - 10 min. Voice ID (ISD)
 - when reaching ID time, the last 6 sec must be without any rx (ID wait)
 - every hour, after the voice ID, the callsign is also sent in morse
+- 1 second tail with 1.25 kHz beep indicating TOT timer reset.
 
 ### Build the firware
 

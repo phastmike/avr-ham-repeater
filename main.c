@@ -76,7 +76,7 @@
 #define BEEP_RX_OFF_ENABLED               false
 #define DEFAULT_BEEP_DURATION_MS          40
 #define DEFAULT_TX_OFF_PENALTY_MS         200
-#define DEFAULT_TAIL_DURATION_MS          800 
+#define DEFAULT_TAIL_DURATION_MS          1000 
 #define DEFAULT_TOT_INHIBIT_DURATION_MS   1500
 #define DEFAULT_INHIBIT_TX_DURATION_SEC   5
 
@@ -488,10 +488,11 @@ int main(void) {
        */
 
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
+         counter_id = 0;
          time_to_id = false;
          rx_audio_disable = true;
-         IO_ENABLE(PORTD, IO_ISD_PLAY);
          IO_ENABLE(PORTD, IO_PTT);
+         IO_ENABLE(PORTD, IO_ISD_PLAY);
          
          for (int c=0; c<21; c++) {
             IO_ENABLE(PORTD, IO_LED_TX);
@@ -518,7 +519,6 @@ int main(void) {
          } else {
             IO_ENABLE(PORTD, IO_LED_TX);
          }
-         counter_id = 0;
          counter_wait = 0;
          rx_audio_disable = false;
       }
