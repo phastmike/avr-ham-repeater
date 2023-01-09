@@ -57,8 +57,8 @@
 #define MORSE_MSG_QTH   "IN51UK"
 #define MORSE_TOT_INFO  "TOT"
 #define MORSE_TOT_END   "K"
-#define MORSE_RPT_START "S"
-#define MORSE_ID        MORSE_MSG_CALL // MORSE_MSG_CALL " " MORSE_MSG_QTH
+#define MORSE_RPT_START MORSE_MSG_CALL " " MORSE_MSG_QTH
+#define MORSE_ID        MORSE_MSG_CALL
 
 
 /* TIME_TOT_SEC
@@ -419,7 +419,7 @@ int main(void) {
 
             while (counter_tot_inhibit < (DEFAULT_TOT_INHIBIT_DURATION_MS * 10)) {
                IO_DISABLE(PORTD, IO_LED_TOT);
-               delay_ms(50); 
+               delay_ms(25); 
                if(counter_inhibit_tx >= DEFAULT_INHIBIT_TX_DURATION_SEC) {
                   IO_ENABLE(PORTD, IO_LED_TOT);
                   IO_ENABLE(PORTD, IO_LED_TX);
@@ -489,6 +489,7 @@ int main(void) {
 
       if (time_to_id && counter_wait > TIME_WAIT_ID) {
          time_to_id = false;
+         rx_audio_disable = true;
          IO_ENABLE(PORTD, IO_ISD_PLAY);
          IO_ENABLE(PORTD, IO_PTT);
          
@@ -519,6 +520,7 @@ int main(void) {
          }
          counter_id = 0;
          counter_wait = 0;
+         rx_audio_disable = false;
       }
    }
 }
