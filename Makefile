@@ -27,6 +27,16 @@ flash: all
 fuse:
 	minipro -p ATMEGA328P@DIP28 -c config -w ${FILE_FUSES} -e
 
+ff: all flash fuse
+
+leds:
+	minipro -w examples/turn_on_all_leds.hex -c code -p ATMEGA328P@DIP28
+	minipro -p ATMEGA328P@DIP28 -c config -w ${FILE_FUSES} -e
+
+repeater:
+	minipro -w examples/cq0ugmr_1_1.hex -c code -p ATMEGA328P@DIP28
+	minipro -p ATMEGA328P@DIP28 -c config -w ${FILE_FUSES} -e
+
 clean:
 	rm -f ${FILE_BINARY}
 	rm -f ${FILE_OBJECT}
