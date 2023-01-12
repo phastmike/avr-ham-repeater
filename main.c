@@ -501,8 +501,11 @@ int main(void) {
             delay_ms(250);
          }
 
+         IO_ENABLE(PORTD, IO_LED_TX);
          IO_DISABLE(PORTD, IO_ISD_PLAY);
+
          n_id++;
+
          if (n_id >= N_ID_FOR_MORSE) {
             IO_ENABLE(PORTD, IO_LED_TX);
             delay_ms(100);
@@ -524,4 +527,3 @@ int main(void) {
       }
    }
 }
-

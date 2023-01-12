@@ -3,7 +3,7 @@
 /*
  * morse.h
  *
- * Morse implementatiob file
+ * Morse implementation file
  * 
  * Uses Mark VandeWettering K6HX algorithm
  * as referenced by ON7EQ. Nevertheless tnx
@@ -21,7 +21,7 @@
 #define DEFAULT_WPM     24
 #define WPM_MIN         10
 #define WPM_MAX         60
-#define DEFAULT_WEIGHT  3.0 /* CW dash to to weight def as 3.5 */
+#define DEFAULT_WEIGHT  3.0 /* CW dit to dash weight/ratio. Default as 3.5 */
 #define WEIGHT_MIN      2.5
 #define WEIGHT_MAX      4.5
 #define DOTLEN          (1200/CW_SPEED)
