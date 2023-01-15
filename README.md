@@ -27,16 +27,16 @@ the basic functionalities:
 The software was written from scratch in bare metal C code for the ATMEGA328P.
 It uses all the three timers and a few IO pins:
 
-|Pin|Description
-|---|-----------
-|2  |TX PTT control
-|3  |RX Audio mute/unmute control
-|4  |RX Led
-|5  |TX Led
-|6  |TOT Led
-|11 |External ISD board play control
-|19 |Receiver COS/COR/CAS signal
-|23 |Morse/Beep digital output
+|Pin|Ref|Description
+|---|---|--------
+|2  |PD0|TX PTT control
+|3  |PD1|RX Audio mute/unmute control
+|4  |PD2|RX Led
+|5  |PD3|TX Led
+|6  |PD4|TOT Led
+|11 |PD5|External ISD board play control
+|19 |PB5|Receiver COS/COR/CAS signal
+|23 |PC0|Morse/Beep digital output
 
 ## Hardware
 
@@ -58,11 +58,11 @@ are exposed as definitions that can be edited and then recompiled.
 The new firmware implements the following:
 
 - TOT Time out timer (3 min.)
-- on TOT enter beep burst with rx audio mute
-- TOT penalty of 1.5 sec. No RX can happen for 1 sec. to disable TOT
+- on TOT enter, beep burst with rx audio mute
+- TOT penalty of 1.5 sec. No RX can happen, in the mentioned time, to disable TOT
 - while in time out, transmit "TOT" in Morse, every 5 sec.
-- on TOT leave transmit "K" in morse
-- 10 min. Voice ID (ISD)
+- on TOT leave, transmit "K" in morse
+- Voice ID every 10 minutes (ISD)
 - when reaching ID time, the last 6 sec must be without any rx (ID wait)
 - every hour, after the voice ID, the callsign is also sent in morse
 - 1 second tail with 1.25 kHz beep indicating TOT timer reset.
