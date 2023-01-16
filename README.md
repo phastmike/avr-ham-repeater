@@ -65,7 +65,8 @@ The new firmware implements the following:
 - Voice ID every 10 minutes (ISD)
 - when reaching ID time, the last 6 sec must be without any rx (ID wait)
 - every hour, after the voice ID, the callsign is also sent in morse
-- 1 second tail with 1.25 kHz beep indicating TOT timer reset.
+- 1 second tail with 1.25 kHz 40 ms beep indicating TOT timer reset. A morse T
+- On ID wait, evaluating the last 6 seconds before ID, the tail will resemble a morse I
 
 ### Build the firmware
 
@@ -75,6 +76,24 @@ To build the firmware you can use `make`. To flash use `make flash` followed by
 `make fuse` to "burn the fuses".
 
 We've used the programmer XGecu TL866 II Plus (TL866II+) with minipro linux software.
+
+## Special thanks
+
+As always, thanks to the ARM team in particular, by callsign order:
+
+- CT1BDV Emanuel
+- CT1EUK Freitas
+- CT1EYN Costa
+- CS7AFE Carlos
+- CS7ALF Constantino
+- CR7AQJ Soares
+
+and to the testers:
+
+- CT1ENP Ribeiro
+- CT1EUK Freitas
+- CT1EYN Costa
+
 
 ## Development tips
 
