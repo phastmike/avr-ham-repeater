@@ -67,7 +67,7 @@ The new firmware implements the following:
 - every hour, after the voice ID, the callsign is also sent in morse
 - 1 second tail with 1.25 kHz beep indicating TOT timer reset.
 
-### Build the firware
+### Build the firmware
 
 Below in this document, there's a couple tips on how to setup the toolchain.
 
