@@ -44,6 +44,9 @@ It uses all the three timers and a few IO pins:
 
 ![schematic](./schematic/avr_rpt_schematic.png)
 
+The LED indicating POWER ON is not on the schematic above. A power cable from the led 
+directly into the 13.8V DC Input with a resistor in serie was used.
+
 ### Layout
 
 ![schematic](./schematic/avr_rpt_layout.png)
