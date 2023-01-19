@@ -92,7 +92,7 @@ volatile unsigned int counter_inhibit_tx  = 0;
 volatile bool time_to_tot                 = false;
 volatile bool time_to_id                  = false;
 volatile bool tot_enabled                 = false;
-volatile bool rx_audio_disable            = false;
+volatile bool rx_audio_disable            = true;
 volatile unsigned int beep_hperiod        = 4;
 static bool beep_tot_played               = false;
 static bool tail_pending                  = false;
@@ -380,6 +380,9 @@ int main(void) {
    IO_DISABLE(PORTD, IO_PTT);
 
    delay_ms(500);
+
+   /* Enable the rx audio now */
+   rx_audio_disable = false;
 
    /* Superloop */
 
