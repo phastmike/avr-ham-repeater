@@ -29,14 +29,14 @@ It uses all the three timers and a few IO pins:
 
 |Pin|Ref|I/O|Description
 |---|---|---|-----------
-|2  |PD0| O |TX PTT control
-|3  |PD1| O |RX Audio mute/unmute control
-|4  |PD2| O |RX Led
-|5  |PD3| O |TX Led
-|6  |PD4| O |TOT Led
-|11 |PD5| O |External ISD board play control
-|19 |PB5| I |Receiver COS/COR/CAS signal
-|23 |PC0| O |Morse/Beep digital output
+|2  |PD0|Out|TX PTT control
+|3  |PD1|Out|RX Audio mute/unmute control
+|4  |PD2|Out|RX Led
+|5  |PD3|Out|TX Led
+|6  |PD4|Out|TOT Led
+|11 |PD5|Out|External ISD board play control
+|19 |PB5|In |Receiver COS/COR/CAS signal
+|23 |PC0|Out|Morse/Beep digital output
 
 ## Hardware
 
