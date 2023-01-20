@@ -27,16 +27,16 @@ the basic functionalities:
 The software was written from scratch in bare metal C code for the ATMEGA328P.
 It uses all the three timers and a few IO pins:
 
-|Pin|Ref|Description
-|---|---|--------
-|2  |PD0|TX PTT control
-|3  |PD1|RX Audio mute/unmute control
-|4  |PD2|RX Led
-|5  |PD3|TX Led
-|6  |PD4|TOT Led
-|11 |PD5|External ISD board play control
-|19 |PB5|Receiver COS/COR/CAS signal
-|23 |PC0|Morse/Beep digital output
+|Pin|Ref|I/O|Description
+|---|---|---|-----------
+|2  |PD0| O |TX PTT control
+|3  |PD1| O |RX Audio mute/unmute control
+|4  |PD2| O |RX Led
+|5  |PD3| O |TX Led
+|6  |PD4| O |TOT Led
+|11 |PD5| O |External ISD board play control
+|19 |PB5| I |Receiver COS/COR/CAS signal
+|23 |PC0| O |Morse/Beep digital output
 
 ## Hardware
 
