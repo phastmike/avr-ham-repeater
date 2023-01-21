@@ -297,12 +297,26 @@ void intro_sequence(void) {
 /* Setup IO ports */
 
 void setup_io(void) {
-   /* PORT B as Inputs */
-   DDRB = 0x00;
+   /* PORTB
+    * All ports as outputs excep IO_RPT_RX
+    */
+   DDRB = 0xFF;
+   DDRB &= ~_BV(DDB5);
 
-   /* Set pins as outputs */
-   DDRC |= _BV(DDC0);
-   DDRD |= _BV(DDD5) + _BV(DDD4) + _BV(DDD3) + _BV(DDD2) + _BV(DDD1) + _BV(DDD0);
+   /* PORTC
+    * All ports as outputs and init out values
+    */
+   DDRC  = 0x7F;
+
+   /* PORTD
+    * All ports as outputs and init out values
+    */
+   DDRD  = 0xFF;
+
+   /* Init ports, IO_RPT_RX to disable PULL UP */
+   PORTB = 0x0;
+   PORTC = 0x0;
+   PORTD = 0x0;
 }
 
 /******************************************************************************
@@ -375,7 +389,7 @@ int main(void) {
    delay_ms(500);
    morse_send_msg(morse, MORSE_RPT_START);
    delay_ms(500);
-   
+
    IO_DISABLE(PORTD, IO_LED_TX);
    IO_DISABLE(PORTD, IO_PTT);
 
@@ -388,7 +402,7 @@ int main(void) {
 
    while(true) {
 
-      if (IO_IS_ENABLED(PINB, PINB5)) {
+      if (IO_IS_ENABLED(PINB, IO_RPT_RX)) {
          IO_ENABLE(PORTD, IO_LED_TX);
          IO_ENABLE(PORTD, IO_PTT);
          if (!tail_pending) {
@@ -397,11 +411,10 @@ int main(void) {
 
          beep_tot_played = false;
 
-         while (IO_IS_ENABLED(PINB, PINB5) && !tot_enabled) {
+         while (IO_IS_ENABLED(PINB, IO_RPT_RX) && !tot_enabled) {
             asm("");
             
             if (counter_tot > TIME_TOT_SEC && !beep_tot_played) {
-               IO_ENABLE(PORTD, IO_LED_TOT);
                tot_enabled = true;
                delay_ms(100);
                IO_DISABLE(PORTD, IO_RX_UNMUTE);
@@ -415,16 +428,14 @@ int main(void) {
          }
 
          if (tot_enabled) {
+            IO_ENABLE(PORTD, IO_LED_TOT);
             counter_inhibit_tx = 0;
             tot_inhibit = true;
             counter_tot_inhibit = 0;
             tot_play_end = false;
 
             while (counter_tot_inhibit < (DEFAULT_TOT_INHIBIT_DURATION_MS * 10)) {
-               IO_DISABLE(PORTD, IO_LED_TOT);
-               delay_ms(25); 
                if(counter_inhibit_tx >= DEFAULT_INHIBIT_TX_DURATION_SEC) {
-                  IO_ENABLE(PORTD, IO_LED_TOT);
                   IO_ENABLE(PORTD, IO_LED_TX);
                   IO_ENABLE(PORTD, IO_PTT);
                   delay_ms(200);
@@ -435,11 +446,8 @@ int main(void) {
                   counter_inhibit_tx = 0;
                   tot_play_end = true;
                }
-               IO_ENABLE(PORTD, IO_LED_TOT);
-               delay_ms(50); 
             }
 
-            IO_DISABLE(PORTD, IO_LED_TOT);
 
             if (tot_play_end) {
                IO_ENABLE(PORTD, IO_LED_TX);
@@ -454,6 +462,7 @@ int main(void) {
             tot_inhibit = false;
             tot_enabled = false; 
             tail_pending = false;
+            IO_DISABLE(PORTD, IO_LED_TOT);
          } else {
             // Normal tail ending. Add some time and beep
             tail_pending = true;
