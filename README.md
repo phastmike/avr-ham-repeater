@@ -47,6 +47,11 @@ It uses all the three timers and a few IO pins:
 The LED indicating POWER ON is not on the schematic above. A power cable from the led 
 directly into the 13.8V DC Input with a resistor in serie was used.
 
+NOTES:
+
+- AVcc should be connected to VCC. (ADCs not used)
+- All unused IOs are configured as OUTPUTS and tied to LOW level
+
 ### Layout
 
 ![schematic](./schematic/avr_rpt_layout.png)
