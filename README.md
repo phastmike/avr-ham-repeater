@@ -51,6 +51,8 @@ NOTES:
 
 - AVcc should be connected to VCC. (ADCs not used)
 - All unused IOs are configured as OUTPUTS and tied to LOW level
+- Two 1N4148 diodes were added in series from +5V to the VCC on the ISD board
+   - to reduce voltage down to less than 4 volts and avoid stressing the circuit. 
 
 ### Layout
 
