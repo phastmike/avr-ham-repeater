@@ -395,7 +395,7 @@ int main(void) {
 
    delay_ms(500);
 
-   /* Enable the rx audio now */
+   /* Enable the rx audio now - disabled in declaration */
    rx_audio_disable = false;
 
    /* Superloop */
