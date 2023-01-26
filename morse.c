@@ -188,9 +188,19 @@ void morse_beep_delegate_connect(morse_t *morse, void (*delegate)(unsigned int d
    morse->beep_delegate = delegate;
 }
 
+void morse_beep_delegate_disconnect(morse_t *morse) {
+   assert(morse != NULL);
+   morse->beep_delegate = NULL;
+}
+
 void morse_delay_delegate_connect(morse_t *morse, void (*delegate)(unsigned int duration)) {
    assert(morse != NULL);
    morse->delay_delegate = delegate;
+}
+
+void morse_delay_delegate_disconnect(morse_t *morse) {
+   assert(morse != NULL);
+   morse->delay_delegate = NULL;
 }
 
 void morse_send_msg(morse_t *morse, char *str) {
