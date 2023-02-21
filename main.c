@@ -32,6 +32,9 @@
  * Time for ID in seconds. For 10 minutes, 60 sec/min * 10 min = 600 
  * Reaching time to id we wait TIME_WAIT_ID seconds to ID.
  * We subtract the wait time to make the "correct" time = 600 - TIME_WAIT_ID.
+ * Note: This time starts counting at the end of last transmition and not
+ *       from after it's tail. We can add tail time if we want to start counting
+ *       after the tail or move the sentence counter_wait = 0;
  */
 
 #define TIME_WAIT_ID    6
