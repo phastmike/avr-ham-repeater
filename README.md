@@ -1,5 +1,7 @@
 # avr-ham-repeater
 
+![Repeater](images/avr_ham_repeater.jpg "CQ0UGMR Repeater")
+
 This project evolves from an already existing hardware built by CT1BMU and his
 son, based on what is supposed to be an original by a Brazilian fellow ham but
 no references to he original author were found. 
@@ -57,6 +59,16 @@ NOTES:
 ### Layout
 
 ![schematic](./schematic/avr_rpt_layout.png)
+
+### Images
+
+#### PCB
+
+![PCB](images/avr_ham_repeater_pcb.jpg "PCBs")
+
+#### Back connectors (specific to motorola radios)
+
+![Connectors](images/avr_ham_repeater_back_connectors.jpg "Back connectors")
 
 ## Firmware
 
