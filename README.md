@@ -70,6 +70,35 @@ NOTES:
 
 ![Connectors](images/avr_ham_repeater_back_connectors.jpg "Back connectors")
 
+##### Accessory Motorola TX
+
+```
+      AUTO ON (OUT 2 <-> IN 6 - IGNITION)
+MIC   /`````\
+ |   /       \
+ 2  4  6  8  10  12  14  16
+ 1  3  5  7   9  11  13  15
+    |     |
+   PTT   GND
+```
+
+##### Accessory Motorola RX
+
+*The RX radio has a hack, not sure the reason why but the COR/CAS signal
+is not exposed on the back connector and a cable was soldered inside the radio
+via a green cable.*
+
+```
+RED CABLE GOES TO GREEN WIRE (COMES FROM THE RADIO)
+THERE IS AT LEAST ONE RESISTOR CONNECTING BOTH WIRES
+I SUSPECT IT IS THE COR/COS SIGNAL
+
+ 2  4  6  8  10  12  14  16
+ 1  3  5  7   9  11  13  15
+          |      |
+         GND   RX_AUDIO (FLAT)
+```
+
 ## Firmware
 
 The C code has comments that better explain the implementation and most parameters
